@@ -82,7 +82,6 @@ local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
 
 -- quadrature information
 
--- todo: create 4 regions of angle values
 fspace angle_value {
 	xi : double,
 	eta : double,
@@ -224,6 +223,7 @@ do
 
 end
 
+-- todo: pass in all quadrants 
 -- Update source term
 task source_term(points : region(ispace(int2d), point),
 				angle_values : region(ispace(int1d), angle_value))
@@ -340,6 +340,7 @@ task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
 
 end
 
+-- todo: pass in all quadrants for both faces
 -- pass all 4 quadrants of faces and all 4 angle_values
 task west_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
@@ -574,73 +575,105 @@ task main()
 	c.printf(' Number of DOM angles: %d\n', N[0])
 	N_angles = N[0]
 
+	-- todo: meta programming
+
 	-- Create a region from our grid index space (angles + 2D grid in space)
 	-- and our cell field space defined above.
 
 	var grid = ispace(int2d, {x = Nx, y = Ny})
 
-	var points = region(grid, point)
+	var points_1 = region(grid, point)
+	var points_2 = region(grid, point)
+	var points_3 = region(grid, point)
+	var points_4 = region(grid, point)
 
 	-- 2D Region from grid index space (+1 in x direction) and x_face field space
 
 	var grid_x = ispace(int2d, {x = Nx+1, y = Ny})
 
-	var x_faces = region(grid_x, x_face)
+	var x_faces_1 = region(grid_x, x_face)
+	var x_faces_2 = region(grid_x, x_face)
+	var x_faces_3 = region(grid_x, x_face)
+	var x_faces_4 = region(grid_x, x_face)
 
 	-- 2D Region from grid index space (+1 in y direction) and y_face field space
 
 	var grid_y = ispace(int2d, {x = Nx, y = Ny+1})
 
-	var y_faces = region(grid_y, y_face)
+	var y_faces_1 = region(grid_y, y_face)
+	var y_faces_2 = region(grid_y, y_face)
+	var y_faces_3 = region(grid_y, y_face)
+	var y_faces_4 = region(grid_y, y_face)
 
 	-- 1D Region from angle values
 
 	var angle_indices = ispace(int1d, N_angles)
 
+	-- todo: create 4 regions of angle values - is this necessary if they're never written to?
+
 	var angle_values = region(angle_indices, angle_value)
 
 	-- Initialize all arrays in our field space on the grid. 
 
+	-- todo: update these methods
 	initialize(points, filename)
 
 	initialize_faces(x_faces, y_faces)
 
 	-- Tile partition cells
 	var tiles = ispace(int2d, {x = nt, y = nt})
-	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny)
+
+	var private_cells_1 = make_interior_partition(points_1, tiles, nt, Nx, Ny)
+	var private_cells_2 = make_interior_partition(points_2, tiles, nt, Nx, Ny)
+	var private_cells_3 = make_interior_partition(points_3, tiles, nt, Nx, Ny)
+	var private_cells_4 = make_interior_partition(points_4, tiles, nt, Nx, Ny)
 
 	-- Partition faces
-	var private_x_faces = make_interior_partition_x(x_faces, tiles, nt, Nx+1, Ny)
+	var private_x_faces_1 = make_interior_partition_x(x_faces_1, tiles, nt, Nx+1, Ny)
+	var private_x_faces_2 = make_interior_partition_x(x_faces_2, tiles, nt, Nx+1, Ny)
+	var private_x_faces_3 = make_interior_partition_x(x_faces_3, tiles, nt, Nx+1, Ny)
+	var private_x_faces_4 = make_interior_partition_x(x_faces_4, tiles, nt, Nx+1, Ny)
 
-	var private_y_faces = make_interior_partition_y(y_faces, tiles, nt, Nx, Ny+1)
+	var private_y_faces_1 = make_interior_partition_y(y_faces_1, tiles, nt, Nx, Ny+1)
+	var private_y_faces_2 = make_interior_partition_y(y_faces_2, tiles, nt, Nx, Ny+1)
+	var private_y_faces_3 = make_interior_partition_y(y_faces_3, tiles, nt, Nx, Ny+1)
+	var private_y_faces_4 = make_interior_partition_y(y_faces_4, tiles, nt, Nx, Ny+1)
 
-	var ghost_x_faces = make_ghost_partition_x(x_faces, tiles, nt, Nx+1, Ny)
+	var ghost_x_faces_1 = make_ghost_partition_x(x_faces_1, tiles, nt, Nx+1, Ny)
+	var ghost_x_faces_2 = make_ghost_partition_x(x_faces_2, tiles, nt, Nx+1, Ny)
+	var ghost_x_faces_3 = make_ghost_partition_x(x_faces_3, tiles, nt, Nx+1, Ny)
+	var ghost_x_faces_4 = make_ghost_partition_x(x_faces_4, tiles, nt, Nx+1, Ny)
 
-	var ghost_y_faces = make_ghost_partition_y(y_faces, tiles, nt, Nx, Ny+1)
+	var ghost_y_faces_1 = make_ghost_partition_y(y_faces_1, tiles, nt, Nx, Ny+1)
+	var ghost_y_faces_2 = make_ghost_partition_y(y_faces_2, tiles, nt, Nx, Ny+1)
+	var ghost_y_faces_3 = make_ghost_partition_y(y_faces_3, tiles, nt, Nx, Ny+1)
+	var ghost_y_faces_4 = make_ghost_partition_y(y_faces_4, tiles, nt, Nx, Ny+1)
 
 
 	while (res > tol) do
     
-    -- for all quadrants?
-
 	    -- Update the source term (in this problem, isotropic).
 	    for color in tiles do
-	   		source_term(private_cells[color])
+	   		source_term(private_cells_1[color], private_cells_2[color], 
+	   			private_cells_3[color], private_cells_4[color])
 	   	end
-	-- end
 
 	   	-- Update the grid boundary intensities.
-	   	-- pass in all quadrants for both faces and angle values
+	
 	  	-- Update x faces (west bound/east bound)
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		west_bound(private_x_faces[0][j], angle_values)
-	  		east_bound(private_x_faces[Nx][j], angle_values)
+	  		west_bound(private_x_faces_1[0][j], private_x_faces_2[0][j], 
+	  			private_x_faces_3[0][j], private_x_faces_4[0][j], angle_values)
+	  		east_bound(private_x_faces_1[Nx][j], private_x_faces_2[Nx][j], 
+	  			private_x_faces_3[Nx][j], private_x_faces_4[Nx][j], angle_values)
 	  	end
 	  	
 	  	-- Update y faces (north bound/south bound)
 	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  		north_bound(private_y_faces[i][0], angle_values)
-	  		south_bound(private_y_faces[i][Ny], angle_values)
+	  		north_bound(private_y_faces_1[i][0], private_y_faces_2[i][0], 
+	  			private_y_faces_3[i][0], private_y_faces_4[i][0], angle_values)
+	  		south_bound(private_y_faces_1[i][Ny], private_y_faces_2[i][Ny], 
+	  			private_y_faces_3[i][Ny], private_y_faces_4[i][Ny], angle_values)
 	  	end
 
 	-- for all quadrants
@@ -679,35 +712,14 @@ task main()
   -- todo: reduce_intensity(points)
 
 
-  -- read n angles from file in lua
-  -- change ghost regions to be 1 over
-  -- update & residual for each tile
-  -- loop over quadrants before source term, boundaries, sweep, and residual
-  -- change sweep code to take which range of angles (copy it 4 times)
-  -- create 4 regions of points (each direction of angles) and faces  and angle values
-  	-- BEFORE partitioning (partition each separately)
-
-  -- create 4 different partitioning code so that 1,2,3,4 is the right order (start with corner 
+  -- 0) read n angles from file in lua
+  -- 1) change ghost regions to be 1 over and return empty regions for boundaries
+  -- 2 pdate intensity methods
+  -- 3 Update source term and boundary methods
+  -- 4 create 4 different partitioning code so that 1,2,3,4 is the right order (start with corner 
   	-- with angle direction always)
-
-
-
-
-  -- 1 quadrangle
-  	-- Start with 1 angle
-  		-- * Create region of angle weights 
-  		-- * Partition cells into tiles
-  		-- * Partition each face into tiles
-  		-- * Partition each face into ghost regions per tile
-  		-- Pass empty regions for boundary cases ghost regions
-  		-- * West, East, South, North, Sweep - per tile
-  	-- Group 12 angles
-
-  -- (work on 2nd quadrangle, then try meta programming to do all 4)
-
-  -- create two slides on work
-  -- create design doc on partitions
-  -- poster by May
+  -- 5 change sweep code to take which range of angles (copy it 4 times)
+  -- last) update & residual for each tile
 
   -- Compute the residual and output to the screen.
     	--todo:
