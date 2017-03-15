@@ -33,7 +33,7 @@ local quad_file = "S8.dat"
 local Nx = 100
 local Ny = 100
 
--- Being read from file
+--todo: Read from file in Lua
 
 local N_angles = 1
 
@@ -82,7 +82,7 @@ local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
 
 -- quadrature information
 
--- create a 1D index space region
+-- todo: create 4 regions of angle values
 fspace angle_value {
 	xi : double,
 	eta : double,
@@ -90,10 +90,19 @@ fspace angle_value {
 }
 
 fspace point {
-	-- Intensities
-	I : double[N_angles],		-- cell center intensity per angle
-	Iiter : double[N_angles],   -- iterative intensity per angle
-	G : double,					-- intensity summation over all angles
+
+	-- Intensities per angle quadrant
+	I_1 : double[N_angles/4],		-- cell center intensity per angle
+	I_2 : double[N_angles/4],		-- cell center intensity per angle
+	I_3 : double[N_angles/4],		-- cell center intensity per angle
+	I_4 : double[N_angles/4],		-- cell center intensity per angle
+
+	Iiter_1 : double[N_angles/4],   -- iterative intensity per angle
+	Iiter_2 : double[N_angles/4],   -- iterative intensity per angle
+	Iiter_3 : double[N_angles/4],   -- iterative intensity per angle
+	Iiter_4 : double[N_angles/4],   -- iterative intensity per angle
+
+	G : double,						-- intensity summation over all angles
 
 	-- source term
 	S : double,  	
@@ -109,12 +118,17 @@ fspace point {
 }
 
 fspace x_face {
-	Ifx : double[N_angles]		-- x face intensity per angle
-	-- todo: need 4 arrays for each quadrant?
+	Ifx_1 : double[N_angles/4]		-- x face intensity per angle
+	Ifx_2 : double[N_angles/4]		-- x face intensity per angle
+	Ifx_3 : double[N_angles/4]		-- x face intensity per angle
+	Ifx_4 : double[N_angles/4]		-- x face intensity per angle
 }
 
 fspace y_face {
-	Ify : double[N_angles] 		-- y face intensity per angle
+	Ify_1 : double[N_angles/4] 		-- y face intensity per angle
+	Ify_2 : double[N_angles/4] 		-- y face intensity per angle
+	Ify_3 : double[N_angles/4] 		-- y face intensity per angle
+	Ify_4 : double[N_angles/4] 		-- y face intensity per angle
 }
 
 task initialize_faces(x_faces : region(ispace(int2d), x_face),
@@ -136,6 +150,7 @@ do
 
 end
 
+-- todo: generate angle values rather than read from file
 task initialize_angle_values(angle_values : region(ispace(int1d), angle_value),
 						   filename : rawstring)
 where writes (angle_values.xi, angle_values.eta, angle_values.w)
@@ -238,7 +253,7 @@ end
 -- Partition x,y grid into tiles
 task make_interior_partition(points : region(ispace(int2d), point),
                             tiles : ispace(int2d),
-                            ntiles : int64, nx : int64, ny : int64)
+                            ntiles : int64, nx : int64, ny : int64) do
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
 	    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
@@ -253,7 +268,7 @@ end
 
 task make_interior_partition_x(faces : region(ispace(int2d), x_face),
 							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
+							ntiles : int64, nx : int64, ny : int64) do
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
@@ -271,7 +286,7 @@ end
 -- todo: repetition for all interior partitions, way to avoid?
 task make_interior_partition_y(faces : region(ispace(int2d), y_face),
 							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
+							ntiles : int64, nx : int64, ny : int64) do
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
@@ -290,7 +305,7 @@ end
 -- The ghost region is the right most column of each tile 
 task make_ghost_partition_x(faces : region(ispace(int2d), x_face),
 							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
+							ntiles : int64, nx : int64, ny : int64) do
 	var coloring = c.legion_domain_point_coloring_create()
 
 	for tile in tiles do
@@ -309,7 +324,7 @@ end
 -- The ghost region is the bottom row of each tile
 task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
 							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
+							ntiles : int64, nx : int64, ny : int64) do
 	var coloring = c.legion_domain_point_coloring_create()
 
 	for tile in tiles do
@@ -325,11 +340,12 @@ task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
 
 end
 
+-- pass all 4 quadrants of faces and all 4 angle_values
 task west_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
-	reads (angle_values.w, angle_values.xi)
-	reads writes (faces.Ifx)
+	reads (angle_values.w, angle_values.xi),
+	reads writes (faces.Ifx) do
 
 	-- Get array bounds
 
@@ -345,7 +361,7 @@ where
   		reflect = 0
   		for m = 1, N_angles do
   			if angle_values[m].xi < 0 then
-  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].xi)*faces[{limits.lo.x,j}].Ifx
+  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].xi)*faces[{limits.lo.x,j}].Ifx[m]
   			end
   		end
   		for m = 1, N_angles do
@@ -359,8 +375,8 @@ end
 task east_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
-	reads (angle_values.w, angle_values.xi)
-	reads writes (faces.Ifx)
+	reads (angle_values.w, angle_values.xi),
+	reads writes (faces.Ifx) do
 
 	-- Get array bounds
 
@@ -390,8 +406,8 @@ end
 task north_bound(faces : region(ispace(int2d), y_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
-	reads (angle_values.w, angle_values.eta)
-	reads writes (faces.Ify)
+	reads (angle_values.w, angle_values.eta),
+	reads writes (faces.Ify) do
 
 	-- Get array bounds
 
@@ -518,16 +534,22 @@ do
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{m,i,j}].I = (points[{i,j}].S*dx*dy + cmath.fabs(angle_values[m].xi)*dy*x_fac[{indx,j}].Ifx/gamma + cmath.fabs(points[{m,0,0}].eta)*dx*points[{m,i,indy}].Ify/gamma)/(points[{0,i,j}].sigma*dx*dy + cmath.fabs(points[{m,0,0}].xi)*dy/gamma + cmath.fabs(points[{m,0,0}].eta)*dx/gamma)
+        points[{i,j}].I = (points[{i,j}].S*dx*dy + cmath.fabs(angle_values[m].xi)*dy*x_faces[{indx,j}].Ifx/gamma + cmath.fabs(angle_values[m].eta)*dx*y_faces[{i,indy}].Ify/gamma)
+        /(sigma*dx*dy + cmath.fabs(angle_values[m].xi)*dy/gamma + cmath.fabs(angle_values[m].eta)*dx/gamma)
 
         -- Compute downwind intensities on cell faces.
 
-        points[{m,indx+dindx,j}].Ifx = (points[{m,i,j}].I - (1-gamma)*points[{m,indx,j}].Ifx)/gamma
-        points[{m,i,indy+dindy}].Ify = (points[{m,i,j}].I - (1-gamma)*points[{m,i,indy}].Ify)/gamma
+        x_faces[{indx+dindx,j}].Ifx = (points[{i,j}].I - (1-gamma)*x_faces[{indx,j}].Ifx)/gamma
+        y_faces[{i,indy+dindy}].Ify = (points[{i,j}].I - (1-gamma)*y_faces[{i,indy}].Ify)/gamma
 
       end
     end
   end
+
+end
+
+-- partition rect with hi < lo
+task empty_region() do
 
 end
 
@@ -599,38 +621,55 @@ task main()
 
 	while (res > tol) do
     
+    -- for all quadrants?
+
 	    -- Update the source term (in this problem, isotropic).
-	    
-	   	source_term(points)
+	    for color in tiles do
+	   		source_term(private_cells[color])
+	   	end
+	-- end
 
-		for i = [int](private_cells.bounds.lo.x), [int](private_cells.bounds.hi.x) + 1 do
-			for j = [int](private_cells.bounds.lo.y), [int](private_cells.bounds.hi.y) + 1 do
+	   	-- Update the grid boundary intensities.
+	   	-- pass in all quadrants for both faces and angle values
+	  	-- Update x faces (west bound/east bound)
+	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
+	  		west_bound(private_x_faces[0][j], angle_values)
+	  		east_bound(private_x_faces[Nx][j], angle_values)
+	  	end
+	  	
+	  	-- Update y faces (north bound/south bound)
+	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
+	  		north_bound(private_y_faces[i][0], angle_values)
+	  		south_bound(private_y_faces[i][Ny], angle_values)
+	  	end
 
-				-- Update the grid boundary intensities.
+	-- for all quadrants
+		for color in tiles do
 
-			  	-- Update x faces (west bound/east bound)
-			  	west_bound(private_x_faces[i][j], angle_values)
-			  	east_bound(private_x_faces[i][j], angle_values)
+			-- Perform the sweep for computing new intensities.
+			-- todo: empty regions?
 
-			  	-- Update y faces (north bound/south bound)
-			  	north_bound(private_y_faces[i][j], angle_values)
-			  	south_bound(private_y_faces[i][j], angle_values)
+			var ghost_x_region = empty_region()
+			if color.y > 0 do
+				ghost_x_region = ghost_x_faces[color.x][color.y-1]
+			end
+			var ghost_y_region = empty_region()
+			if color.x > 0 do 
+				ghost_y_region = ghost_y_faces[color.x-1][color.y]
+			end
+			sweep(private_cells[color], private_x_faces[color], private_y_faces[color], 
+				ghost_x_region, ghost_y_region, angle_values)
+		end  
 
-				-- Perform the sweep for computing new intensities.
-				-- todo: empty regions?
-				sweep(private_cells[i][j], private_x_faces[i][j], private_y_faces[i][j], 
-					ghost_x_faces[i][j-1], ghost_y_faces[i-1][j], angle_values)
-		end    
   
-    -- Compute the residual and output to the screen.
-    	--todo:
-  		-- res = residual(points, t)
+  	-- end all quadrants 
+
+  	-- for all quadrants
+  		-- residual & update 
+  	-- end
+  		-- 
+
     
-
-
-    -- Update the intensities and the iteration number.
-        
-	--  todo: update(points)
 		t = t + 1
 
 	end
@@ -640,6 +679,20 @@ task main()
   -- todo: reduce_intensity(points)
 
 
+  -- read n angles from file in lua
+  -- change ghost regions to be 1 over
+  -- update & residual for each tile
+  -- loop over quadrants before source term, boundaries, sweep, and residual
+  -- change sweep code to take which range of angles (copy it 4 times)
+  -- create 4 regions of points (each direction of angles) and faces  and angle values
+  	-- BEFORE partitioning (partition each separately)
+
+  -- create 4 different partitioning code so that 1,2,3,4 is the right order (start with corner 
+  	-- with angle direction always)
+
+
+
+
   -- 1 quadrangle
   	-- Start with 1 angle
   		-- * Create region of angle weights 
@@ -647,10 +700,24 @@ task main()
   		-- * Partition each face into tiles
   		-- * Partition each face into ghost regions per tile
   		-- Pass empty regions for boundary cases ghost regions
-  		-- West, East, South, North, Sweep - per tile
+  		-- * West, East, South, North, Sweep - per tile
   	-- Group 12 angles
 
   -- (work on 2nd quadrangle, then try meta programming to do all 4)
+
+  -- create two slides on work
+  -- create design doc on partitions
+  -- poster by May
+
+  -- Compute the residual and output to the screen.
+    	--todo:
+  		-- res = residual(points, t)
+    
+
+
+    -- Update the intensities and the iteration number.
+        
+	--  todo: update(points)
 
 end
 
