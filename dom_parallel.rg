@@ -330,12 +330,18 @@ do
 
 end
 
+-- source_term(private_cells_1[color], private_cells_2[color], 
+	   			-- private_cells_3[color], private_cells_4[color])
 -- todo: pass in all quadrants 
 -- Update source term
-task source_term(points : region(ispace(int2d), point),
-				angle_values : region(ispace(int1d), angle_value))
+task source_term(points_1 : region(ispace(int2d), point),
+	points_2 : region(ispace(int2d), point),
+	points_3 : region(ispace(int2d), point),
+	points_4 : region(ispace(int2d), point),
+	angle_values : region(ispace(int1d), angle_value))
 where
-  reads (points.Iiter, points.w, points.Ib, points.sigma, angle_values.w),
+  reads (points_1.Iiter_1, points_2.Iiter_2, points_3.Iiter_3, points_4.Iiter_4, 
+  	points.w, points.Ib, points.sigma, angle_values.w),
   reads writes (points.S)
 do
 
