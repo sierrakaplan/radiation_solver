@@ -26,7 +26,7 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "S8.dat"
+local quad_file = "radiation_solver/S8.dat"
 
 -- Grid size (x cells, y cells)
 
@@ -374,6 +374,7 @@ do
 
   for m = limits.lo.x, limits.hi.x + 1 do
 
+
     -- Determine our sweeping direction. If xi > 0, angle points in +x,
     -- so we sweep from left to right. Otherwise, angle points in -x, 
     -- so sweep from right to left.
@@ -382,10 +383,12 @@ do
       dindx  = 1
       startx = 0
       endx   = Nx
+      c.printf("+x")
     else
       dindx  = -1
       startx = Nx-1
       endx   = -1
+      c.printf("-x")
     end
 
     -- If eta > 0, angle points in +y, sp sweep bottom to top.
@@ -395,10 +398,12 @@ do
       dindy  = 1
       starty = 0
       endy   = Ny
+      c.printf("+y\n")
     else
       dindy  = -1
       starty = Ny-1
       endy   = -1
+      c.printf("-y\n")
     end
 
     -- Use our direction and increments for the sweep.
@@ -439,7 +444,8 @@ do
   for m = limits.lo.x, limits.hi.x + 1 do
     for i = limits.lo.y, limits.hi.y do
       for j = limits.lo.z, limits.hi.z do
-        res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))*cmath.pow((points[{m,i,j}].I-points[{m,i,j}].Iiter),2.0)/cmath.pow((points[{m,i,j}].I),2.0)
+        res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))
+          *cmath.pow((points[{m,i,j}].I-points[{m,i,j}].Iiter),2.0)/cmath.pow((points[{m,i,j}].I),2.0)
       end
     end
   end
