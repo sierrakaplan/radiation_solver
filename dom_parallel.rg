@@ -542,9 +542,7 @@ do
   	end
 end
 
--- sweep(private_cells_1[color], private_x_faces_1[color], private_y_faces_1[color], 
-		--		ghost_x_faces_1[color], ghost_y_faces_1[color], angle_values, 1)
-task sweep(points : region(ispace(int2d), point),
+task sweep_1(points : region(ispace(int2d), point),
 		   x_faces : region(ispace(int2d), x_face),
 		   y_faces : region(ispace(int2d), y_face),
 		   ghost_x_faces : region(ispace(int2d), x_face),
@@ -695,75 +693,47 @@ task main()
 	-- Tile partition cells
 	var tiles = ispace(int2d, {x = nt, y = nt})
 
-	var private_cells_1 = make_interior_partition_1(points_1, tiles, nt, Nx, Ny)
-	var private_cells_2 = make_interior_partition_2(points_2, tiles, nt, Nx, Ny)
-	var private_cells_3 = make_interior_partition_3(points_3, tiles, nt, Nx, Ny)
-	var private_cells_4 = make_interior_partition_4(points_4, tiles, nt, Nx, Ny)
+	var private_cells = make_interior_partition_1(points, tiles, nt, Nx, Ny)
 
 	-- Partition faces
-	var private_x_faces_1 = make_interior_partition_x_1(x_faces_1, tiles, nt, Nx+1, Ny)
-	var private_x_faces_2 = make_interior_partition_x_2(x_faces_2, tiles, nt, Nx+1, Ny)
-	var private_x_faces_3 = make_interior_partition_x_3(x_faces_3, tiles, nt, Nx+1, Ny)
-	var private_x_faces_4 = make_interior_partition_x_4(x_faces_4, tiles, nt, Nx+1, Ny)
+	var private_x_faces = make_interior_partition_x(x_faces, tiles, nt, Nx+1, Ny)
 
-	var private_y_faces_1 = make_interior_partition_y_1(y_faces_1, tiles, nt, Nx, Ny+1)
-	var private_y_faces_2 = make_interior_partition_y_2(y_faces_2, tiles, nt, Nx, Ny+1)
-	var private_y_faces_3 = make_interior_partition_y_3(y_faces_3, tiles, nt, Nx, Ny+1)
-	var private_y_faces_4 = make_interior_partition_y_4(y_faces_4, tiles, nt, Nx, Ny+1)
+	var private_y_faces = make_interior_partition_y(y_faces, tiles, nt, Nx, Ny+1)
 
-	var ghost_x_faces_1 = make_ghost_partition_x_1(x_faces_1, tiles, nt, Nx+1, Ny)
-	var ghost_x_faces_2 = make_ghost_partition_x_2(x_faces_2, tiles, nt, Nx+1, Ny)
-	var ghost_x_faces_3 = make_ghost_partition_x_3(x_faces_3, tiles, nt, Nx+1, Ny)
-	var ghost_x_faces_4 = make_ghost_partition_x_4(x_faces_4, tiles, nt, Nx+1, Ny)
+	var ghost_x_faces = make_ghost_partition_x(x_faces, tiles, nt, Nx+1, Ny)
 
-	var ghost_y_faces_1 = make_ghost_partition_y_1(y_faces_1, tiles, nt, Nx, Ny+1)
-	var ghost_y_faces_2 = make_ghost_partition_y_2(y_faces_2, tiles, nt, Nx, Ny+1)
-	var ghost_y_faces_3 = make_ghost_partition_y_3(y_faces_3, tiles, nt, Nx, Ny+1)
-	var ghost_y_faces_4 = make_ghost_partition_y_4(y_faces_4, tiles, nt, Nx, Ny+1)
+	var ghost_y_faces = make_ghost_partition_y(y_faces, tiles, nt, Nx, Ny+1)
 
 
 	while (res > tol) do
     
 	    -- Update the source term (in this problem, isotropic).
+
 	    for color in tiles do
-	    	--todo: these won't be the same location (rotated)
-	    	-- need to sum Iiter* some value across all angles to compute new source term
-	   		source_term(private_cells_1[color], private_cells_2[color], 
-	   			private_cells_3[color], private_cells_4[color])
+	   		source_term(private_cells[color])
 	   	end
 
 	   	-- Update the grid boundary intensities.
 	
 	  	-- Update x faces (west bound/east bound)
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		west_bound(private_x_faces_1[0][j], private_x_faces_2[0][j], 
-	  			private_x_faces_3[0][j], private_x_faces_4[0][j], angle_values)
-	  		east_bound(private_x_faces_1[Nx][j], private_x_faces_2[Nx][j], 
-	  			private_x_faces_3[Nx][j], private_x_faces_4[Nx][j], angle_values)
+	  		west_bound(private_x_faces[0][j], angle_values)
+	  		east_bound(private_x_faces[Nx][j], angle_values)
 	  	end
 	  	
 	  	-- Update y faces (north bound/south bound)
 	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  		north_bound(private_y_faces_1[i][0], private_y_faces_2[i][0], 
-	  			private_y_faces_3[i][0], private_y_faces_4[i][0], angle_values)
-	  		south_bound(private_y_faces_1[i][Ny], private_y_faces_2[i][Ny], 
-	  			private_y_faces_3[i][Ny], private_y_faces_4[i][Ny], angle_values)
+	  		north_bound(private_y_faces[i][0], angle_values)
+	  		south_bound(private_y_faces[i][Ny], angle_values)
 	  	end
 
+	  	-- Perform the sweep for computing new intensities.
+
+	  	-- todo: 4 sweeps with 4 different orders for each angle quadrant
 		for color in tiles do
-
-			-- Perform the sweep for computing new intensities.
-			sweep(private_cells_1[color], private_x_faces_1[color], private_y_faces_1[color], 
-				ghost_x_faces_1[color], ghost_y_faces_1[color], angle_values, 1)
-
-			sweep(private_cells_2[color], private_x_faces_2[color], private_y_faces_2[color], 
-				ghost_x_faces_2[color], ghost_y_faces_2[color], angle_values, 2)
-
-			sweep(private_cells_3[color], private_x_faces_3[color], private_y_faces_3[color], 
-				ghost_x_faces_3[color], ghost_y_faces_3[color], angle_values, 3)
-
-			sweep(private_cells_4[color], private_x_faces_4[color], private_y_faces_4[color], 
-				ghost_x_faces_4[color], ghost_y_faces_4[color], angle_values, 4)
+			
+			sweep_1(private_cells[color], private_x_faces[color], private_y_faces[color], 
+				ghost_x_faces[color], ghost_y_faces[color], angle_values)
 		end  
 
   
@@ -789,32 +759,6 @@ regentlib.start(main)
 -- +x+y, +x- y, -x+y, -x-y
 -- top left, bottom left, top right, bottom right
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  -- * 4 create 4 different partitioning code so that 1,2,3,4 is the right order (start with corner 
-  	-- with angle direction always)
-  -- * 1) change ghost regions to be 1 over and return empty regions for boundaries
-  -- * 5 change sweep code to take which range of angles (copy it 4 times)
-  -- 2 update intensity methods
-  -- 3 Update source term and boundary methods
-  -- 0) read n angles from file in lua
-  -- 6 test compile it
-  -- last) update & residual for each tile
--- fix angle direction (determine which quadrant is first)
 
 
 
