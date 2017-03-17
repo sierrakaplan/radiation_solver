@@ -134,51 +134,20 @@ fspace y_face {
 	Ify_4 : double[N_angles/4] 		-- y face intensity per angle
 }
 
-task initialize_faces(x_faces_1 : region(ispace(int2d), x_face),
-					  x_faces_2 : region(ispace(int2d), x_face),
-					  x_faces_3 : region(ispace(int2d), x_face),
-					  x_faces_4 : region(ispace(int2d), x_face),
-					  y_faces_1 : region(ispace(int2d), y_face),
-					  y_faces_2 : region(ispace(int2d), y_face),
-					  y_faces_3 : region(ispace(int2d), y_face),
-					  y_faces_4 : region(ispace(int2d), y_face))
-where reads writes(x_faces_1.Ifx_1, x_faces_2.Ifx_2, x_faces_3.Ifx_3, x_faces_4.Ifx_4,
- y_faces_1.Ify_1, y_faces_2.Ify_2, y_faces_3.Ify_3, y_faces_4.Ify_4)
+task initialize_faces(x_faces : region(ispace(int2d), x_face),
+					  y_faces : region(ispace(int2d), y_face))
+where writes(x_faces.Ifx, y_faces,Ify)
 do
 
-	for i in x_faces_1 do
-		for m = 1, N_angles/4 do
-			x_faces_1[i].Ifx_1[m] = 0.0
-		end
-
-		for m = 1, N_angles/4 do
-			x_faces_2[i].Ifx_2[m] = 0.0
-		end
-
-		for m = 1, N_angles/4 do
-			x_faces_3[i].Ifx_3[m] = 0.0
-		end
-
-		for m = 1, N_angles/4 do
-			x_faces_4[i].Ifx_4[m] = 0.0
+	for i in x_faces do
+		for m = 1, N_angles do
+			x_faces[i].Ifx[m] = 0.0
 		end
 	end
 
-	for i in y_faces_1 do
-		for m = 1, N_angles/4 do
-			y_faces_1[i].Ify_1[m] = 0.0
-		end
-
-		for m = 1, N_angles/4 do
-			y_faces_2[i].Ify_2[m] = 0.0
-		end
-
-		for m = 1, N_angles/4 do
-			y_faces_3[i].Ify_3[m] = 0.0
-		end
-
-		for m = 1, N_angles/4 do
-			y_faces_4[i].Ify_4[m] = 0.0
+	for i in y_faces do
+		for m = 1, N_angles do
+			y_faces[i].Ify[m] = 0.0
 		end
 	end
 
@@ -190,8 +159,16 @@ where writes (angle_values.xi, angle_values.eta, angle_values.w)
 
 do
 
-	var f = c.fopen(filename, "rb")
-	var val : double[1]
+	-- Now set the angle_value information, read in from file.
+
+  	-- todo: num angles
+  	var N   : int64[1]
+  	var val : double[1]
+
+  	var f = c.fopen(filename, "rb")
+  	get_number_angles(f, N)
+
+  	var limits = points.bounds
 
   	for i in angle_values do
   		read_val(f, val)
@@ -208,165 +185,66 @@ do
 		angle_values[i].w = val[0]
 	end
   
+
+ 	c.fclose(f)
+
 end
 
-task initialize(points_1 : region(ispace(int2d), point),
-	points_2 : region(ispace(int2d), point),
-	points_3 : region(ispace(int2d), point),
-	points_4 : region(ispace(int2d), point))
+task initialize(points : region(ispace(int2d), point))
 where
-  reads writes(points_1.T, points_2.T, points_3.T, points_4.T,
-  	points_1.I_1, points_2.I_2, points_3.I_3, points_4.I_4,
-  	points_1.Iiter_1, points_2.Iiter_2, points_3.Iiter_3, points_4.Iiter_4), 
-  writes(points_1.Ib, points_2.Ib, points_3.Ib, points_4.Ib, 
-  	points_1.sigma, points_2.sigma, points_3.sigma, points_4.sigma,  	
-  	points_1.G, points_2.G, points_3.G, points_4.G,
-   	points_1.S, points_2.S, points_3.S, points_4.S)
+  reads writes(points.T), writes(points.Ib, points.sigma, points.I, points.G,
+                                 points.Iiter, points.S)
 do
 
-  	for i in points_1 do
+  	-- First loop over all points to set the constant values.
+
+  	for i in points do
 
 	    -- Blackbody source
 
-	    points_1[i].T  = 300.0
-	    points_1[i].Ib = (SB/pi)*cmath.pow(points_1[i].T,4.0)
+	    points[i].T  = 300.0
+	    points[i].Ib = (SB/pi)*cmath.pow(points[i].T,4.0)
 
 	    -- Extinction coefficient
 
-	    points_1[i].sigma = 3.0
+	    points[i].sigma = 3.0
 
 	    -- Intensities (cell-based)
 
-	    for m = 1, N_angles/4 do
-			points_1[i].I_1[m]     = 0.0
-	    	points_1[i].Iiter_1[m] = 0.0
+	    for m = 1, N_angles do
+			points[i].I[m]     = 0.0
+	    	points[i].Iiter[m] = 0.0
 		end
 	    
-    	points_1[i].G = 0.0
+    	points[i].G = 0.0
 
     	-- Source term
 
-    	points_1[i].S = 0.0
-
-  	end
-
-  	for i in points_2 do
-
-	    -- Blackbody source
-
-	    points_2[i].T  = 300.0
-	    points_2[i].Ib = (SB/pi)*cmath.pow(points_2[i].T,4.0)
-
-	    -- Extinction coefficient
-
-	    points_2[i].sigma = 3.0
-
-	    -- Intensities (cell-based)
-
-	    for m = 1, N_angles/4 do
-			points_2[i].I_2[m]     = 0.0
-	    	points_2[i].Iiter_2[m] = 0.0
-		end
-	    
-    	points_2[i].G = 0.0
-
-    	-- Source term
-
-    	points_2[i].S = 0.0
-
-  	end
-
-  	for i in points_3 do
-
-	    -- Blackbody source
-
-	    points_3[i].T  = 300.0
-	    points_3[i].Ib = (SB/pi)*cmath.pow(points_3[i].T,4.0)
-
-	    -- Extinction coefficient
-
-	    points_3[i].sigma = 3.0
-
-	    -- Intensities (cell-based)
-
-	    for m = 1, N_angles/4 do
-			points_3[i].I_3[m]     = 0.0
-	    	points_3[i].Iiter_3[m] = 0.0
-		end
-	    
-    	points_3[i].G = 0.0
-
-    	-- Source term
-
-    	points_3[i].S = 0.0
-
-  	end
-
-  	for i in points_4 do
-
-	    -- Blackbody source
-
-	    points_4[i].T  = 300.0
-	    points_4[i].Ib = (SB/pi)*cmath.pow(points_4[i].T,4.0)
-
-	    -- Extinction coefficient
-
-	    points_4[i].sigma = 3.0
-
-	    -- Intensities (cell-based)
-
-	    for m = 1, N_angles/4 do
-			points_4[i].I_4[m]     = 0.0
-	    	points_4[i].Iiter_4[m] = 0.0
-		end
-	    
-    	points_4[i].G = 0.0
-
-    	-- Source term
-
-    	points_4[i].S = 0.0
+    	points[i].S = 0.0
 
   	end
 
 end
 
--- source_term(private_cells_1[color], private_cells_2[color], 
-	   			-- private_cells_3[color], private_cells_4[color])
--- todo: pass in all quadrants 
 -- Update source term
-task source_term(points_1 : region(ispace(int2d), point),
-	points_2 : region(ispace(int2d), point),
-	points_3 : region(ispace(int2d), point),
-	points_4 : region(ispace(int2d), point),
-	angle_values : region(ispace(int1d), angle_value))
+task source_term(points : region(ispace(int2d), point),
+				angle_values : region(ispace(int1d), angle_value))
 where
-  reads (points_1.Iiter_1, points_2.Iiter_2, points_3.Iiter_3, points_4.Iiter_4, 
-  		points_1.Ib, points_2.Ib, points_3.Ib, points_4.Ib,
-  		points_1.sigma, points_2.sigma, points_3.sigma, points_4.sigma, 
-  		angle_values.w),
-  reads writes (points_1.S, points_2.S, points_3.S, points_4.S)
+  reads (points.Iiter, points.w, points.Ib, points.sigma, angle_values.w),
+  reads writes (points.S)
 do
 
   	-- Get array bounds
 
-  	var  limits = points_1.bounds
+  	var  limits = points.bounds
 
   	-- Loop over all angles and grid cells to compute the source term
   	-- for the current iteration.
 
   	for i = limits.lo.x, limits.hi.x do
     	for j = limits.lo.y, limits.hi.y do
-      		points_1[{i,j}].S = (1.0-omega)*SB*points_1[{i,j}].sigma*points_1[{i,j}].Ib
-     	 	for m = 1, N_angles/4 do
-        		points[{i,j}]_1.S = points_1[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
-      		end
-      		for m = 1, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
-      		end
-      		for m = 1, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
-      		end
-      		for m = 1, N_angles/4 do
+      		points[{i,j}].S = (1.0-omega)*SB*points[{i,j}].sigma*points[{i,j}].Ib
+     	 	for m = 1, N_angles do
         		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
       		end
     	end
