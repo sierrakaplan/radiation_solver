@@ -341,21 +341,32 @@ task source_term(points_1 : region(ispace(int2d), point),
 	angle_values : region(ispace(int1d), angle_value))
 where
   reads (points_1.Iiter_1, points_2.Iiter_2, points_3.Iiter_3, points_4.Iiter_4, 
-  	points.w, points.Ib, points.sigma, angle_values.w),
-  reads writes (points.S)
+  		points_1.Ib, points_2.Ib, points_3.Ib, points_4.Ib,
+  		points_1.sigma, points_2.sigma, points_3.sigma, points_4.sigma, 
+  		angle_values.w),
+  reads writes (points_1.S, points_2.S, points_3.S, points_4.S)
 do
 
   	-- Get array bounds
 
-  	var  limits = points.bounds
+  	var  limits = points_1.bounds
 
   	-- Loop over all angles and grid cells to compute the source term
   	-- for the current iteration.
 
   	for i = limits.lo.x, limits.hi.x do
     	for j = limits.lo.y, limits.hi.y do
-      		points[{i,j}].S = (1.0-omega)*SB*points[{i,j}].sigma*points[{i,j}].Ib
-     	 	for m = 1, N_angles do
+      		points_1[{i,j}].S = (1.0-omega)*SB*points_1[{i,j}].sigma*points_1[{i,j}].Ib
+     	 	for m = 1, N_angles/4 do
+        		points[{i,j}]_1.S = points_1[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
+      		end
+      		for m = 1, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
+      		end
+      		for m = 1, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
+      		end
+      		for m = 1, N_angles/4 do
         		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
       		end
     	end
@@ -773,50 +784,35 @@ task main()
 	c.printf(' Number of DOM angles: %d\n', N[0])
 	N_angles = N[0]
 
-	-- todo: meta programming
 
 	-- Create a region from our grid index space (angles + 2D grid in space)
 	-- and our cell field space defined above.
 
 	var grid = ispace(int2d, {x = Nx, y = Ny})
-
-	var points_1 = region(grid, point)
-	var points_2 = region(grid, point)
-	var points_3 = region(grid, point)
-	var points_4 = region(grid, point)
+	var points = region(grid, point)
 
 	-- 2D Region from grid index space (+1 in x direction) and x_face field space
 
 	var grid_x = ispace(int2d, {x = Nx+1, y = Ny})
 
-	var x_faces_1 = region(grid_x, x_face)
-	var x_faces_2 = region(grid_x, x_face)
-	var x_faces_3 = region(grid_x, x_face)
-	var x_faces_4 = region(grid_x, x_face)
+	var x_faces = region(grid_x, x_face)
 
 	-- 2D Region from grid index space (+1 in y direction) and y_face field space
 
 	var grid_y = ispace(int2d, {x = Nx, y = Ny+1})
 
-	var y_faces_1 = region(grid_y, y_face)
-	var y_faces_2 = region(grid_y, y_face)
-	var y_faces_3 = region(grid_y, y_face)
-	var y_faces_4 = region(grid_y, y_face)
+	var y_faces = region(grid_y, y_face)
 
 	-- 1D Region from angle values
 
 	var angle_indices = ispace(int1d, N_angles)
-
-	-- todo: create 4 regions of angle values - is this necessary if they're never written to?
-
 	var angle_values = region(angle_indices, angle_value)
 
 	-- Initialize all arrays in our field space on the grid. 
 
-	initialize(points_1, points_2, points_3, points_4, filename)
+	initialize(points, filename)
 
-	initialize_faces(x_faces_1, x_faces_2, x_faces_3, x_faces_4,
-		 y_faces_1, y_faces_2, y_faces_3, y_faces_4)
+	initialize_faces(x_faces, y_faces)
 
 	-- Tile partition cells
 	var tiles = ispace(int2d, {x = nt, y = nt})
@@ -852,6 +848,8 @@ task main()
     
 	    -- Update the source term (in this problem, isotropic).
 	    for color in tiles do
+	    	--todo: these won't be the same location (rotated)
+	    	-- need to sum Iiter* some value across all angles to compute new source term
 	   		source_term(private_cells_1[color], private_cells_2[color], 
 	   			private_cells_3[color], private_cells_4[color])
 	   	end
