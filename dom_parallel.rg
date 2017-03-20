@@ -335,11 +335,11 @@ task make_interior_partition_y(faces : region(ispace(int2d), y_face),
 end
 
 
---todo: need left and top ghost partititions too
-
--- The ghost region is the right most column of each tile, over 1 
--- (ghost region for tile 2 is rightmost column of tile 1)
-task make_ghost_partition_x(faces : region(ispace(int2d), x_face),
+-- The largest column in the x direction (needed when sweeping +x)
+-- tile 0 should have empty region
+-- tile 1 should have largest column tile 0
+-- tile 9 should have largest column tile 8
+task make_ghost_partition_x_hi (faces : region(ispace(int2d), x_face),
 							tiles : ispace(int2d),
 							ntiles : int64, nx : int64, ny : int64) 
 	var coloring = c.legion_domain_point_coloring_create()
@@ -362,8 +362,36 @@ task make_ghost_partition_x(faces : region(ispace(int2d), x_face),
 
 end
 
--- The ghost region is the bottom row of each tile, over 1
-task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
+-- The smallest column in the x direction (needed when sweeping -x)
+-- match tile 9 with smallest column from tile 10
+-- if tile 10 is boundary, give it empty region
+-- tile 0 should have smallest column tile 1
+
+task make_ghost_partition_x_lo (faces : region(ispace(int2d), x_face),
+							tiles : ispace(int2d),
+							ntiles : int64, nx : int64, ny : int64) 
+	var coloring = c.legion_domain_point_coloring_create()
+
+	for tile in tiles do
+		var lo = int2d { x = (tile.x+1) * nx / ntiles, y = tile.y * ny / ntiles}
+		var hi = int2d { x = (tile.x+1) * nx / ntiles, y = (tile.y + 1) * ny / ntiles - 1}
+		-- Create an empty partition
+		if hi.x >= nx then
+			lo.x = 1
+			hi.x = 0
+		end
+		var rect = rect2d {lo = lo, hi = hi}
+		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+	end
+
+	var p = partition(disjoint, faces, coloring, tiles)
+	c.legion_domain_point_coloring_destroy(coloring)
+	return p
+
+end
+
+-- The largest row in the y direction (needed when sweeping +y)
+task make_ghost_partition_y_hi(faces : region(ispace(int2d), y_face),
 							tiles : ispace(int2d),
 							ntiles : int64, nx : int64, ny : int64) 
 	var coloring = c.legion_domain_point_coloring_create()
@@ -383,7 +411,29 @@ task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
 	var p = partition(disjoint, faces, coloring, tiles)
 	c.legion_domain_point_coloring_destroy(coloring)
 	return p
+end
 
+-- The smallest row in the y direction (needed when sweeping -y)
+task make_ghost_partition_y_lo(faces : region(ispace(int2d), y_face),
+							tiles : ispace(int2d),
+							ntiles : int64, nx : int64, ny : int64) 
+	var coloring = c.legion_domain_point_coloring_create()
+
+	for tile in tiles do
+		var lo = int2d { x = tile.x * nx / ntiles, y = (tile.y+1) * ny / ntiles}
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y+1) * ny / ntiles}
+		-- Create an empty partition in boundary case
+		if hi.y >= ny then
+			lo.y = 1
+			hi.y = 0
+		end
+		var rect = rect2d {lo = lo, hi = hi}
+		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+	end
+
+	var p = partition(disjoint, faces, coloring, tiles)
+	c.legion_domain_point_coloring_destroy(coloring)
+	return p
 end
 
 task west_bound(faces : region(ispace(int2d), x_face),
@@ -657,6 +707,7 @@ do
   	end
 end
 
+-- +x, +y
 task sweep_1(points : region(ispace(int2d), point),
 		   x_faces : region(ispace(int2d), x_face),
 		   y_faces : region(ispace(int2d), y_face),
@@ -806,9 +857,13 @@ task main()
 
 	var private_y_faces = make_interior_partition_y(y_faces, tiles, nt, Nx, Ny+1)
 
-	var ghost_x_faces = make_ghost_partition_x(x_faces, tiles, nt, Nx+1, Ny)
+	var ghost_x_faces_lo = make_ghost_partition_x_lo(x_faces, tiles, nt, Nx+1, Ny)
 
-	var ghost_y_faces = make_ghost_partition_y(y_faces, tiles, nt, Nx, Ny+1)
+	var ghost_x_faces_hi = make_ghost_partition_x_hi(x_faces, tiles, nt, Nx+1, Ny)
+
+	var ghost_y_faces_lo = make_ghost_partition_y_lo(y_faces, tiles, nt, Nx, Ny+1)
+
+	var ghost_y_faces_hi = make_ghost_partition_y_hi(y_faces, tiles, nt, Nx, Ny+1)
 
 
 	while (res > tol) do
@@ -842,7 +897,7 @@ task main()
 			for j = tiles.lo.y, tiles.hi.y + 1 do
 			
 				sweep_1(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+					ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
 			end
 		end 
 
@@ -851,7 +906,7 @@ task main()
 			for j = tiles.hi.y, tiles.lo.y - 1, -1 do 
 
 				sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+					ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
 			end
 		end
 
@@ -860,7 +915,7 @@ task main()
 			for j = tiles.lo.y, tiles.hi.y + 1 do
 
 				sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+					ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
 			end
 		end
 
@@ -869,7 +924,7 @@ task main()
 			for j = tiles.hi.y, tiles.lo.y - 1, -1 do 
 
 				sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+					ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
 			end
 		end
 
