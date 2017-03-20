@@ -1,0 +1,31 @@
+Much easier to use a 2D field space to represent grid and either use arrays of angle values or different regions to include angles,
+than a 3D space with angles (especially because most values are constant, not per angle)
+
+When doing a sweep, the cell centers only need the values of the neighboring faces to update - solution is to separate faces and
+cell values into separate field spaces. Also to make the x and y face values different field spaces since different faces are needed
+for different sweeps (depending on the angle).
+
+To partition this grid I partition the faces and cell values each into tiles. Then to avoid having to pass an entire extra tile of faces
+for the boundary condition to each sweep call I also create ghost partitions for both the x and y faces.
+
+Because each quadrant of angles needs to start at a different corner of the grid they must somehow be separated. One choice was to have
+4 different regions of field spaces, each only including an array of 1/4 of the angle intensities. Another was to include 4 arrays of
+intensities in each field space (faces and cell values). The tradeoffs between these two approaches:
+
+4 regions would mean I have to create 4 sets of partitions for each and I would have to divide the cell field space yet again into the
+values that don't depend on angle and the values that do (since otherwise there'd be inconsistencies across the 4 copies of each value.)
+I would also have to make different code to partition each region so that I could call a sweep call in the same order every time,
+but I would only need a single sweep task launch. Updating the source term and boundaries would be more complicated as well because they
+require summing across all angles, requiring that I match up the tiles with the same x,y coordinates across all 4 regions and pass all 4
+to the call to update the source term or the boundaries.
+However I wouldn't need to use meta programming and the compile time would be shorter.
+
+Using 4 arrays of intensities in each field space means that I need to create 4 different sweep tasks, since each will need to update a
+different array of intensities. I also need to update 4 different arrays in each boundary intensity task. However updating the boundaries
+and the source term is simpler because I just sum across all 4 arrays contained in the same tile, rather than needing 4 tiles. Instead of
+creating 4 different partition tasks for the cell centers, x and y faces, and ghost regions (5 * 4 = 20 partition tasks) I will just launch
+the sweep tasks in 4 different orders across the tiles and only create 1 partition for each.
+
+I chose to do the second approach because in the end I decided it was less complex.
+
+(note: need left and top ghost partitions too)

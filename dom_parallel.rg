@@ -136,18 +136,27 @@ fspace y_face {
 
 task initialize_faces(x_faces : region(ispace(int2d), x_face),
 					  y_faces : region(ispace(int2d), y_face))
-where writes(x_faces.Ifx, y_faces,Ify)
+where reads writes(x_faces.Ifx_1, y_faces.Ify_1,
+	x_faces.Ifx_2, y_faces.Ify_2,
+	x_faces.Ifx_3, y_faces.Ify_3,
+	x_faces.Ifx_4, y_faces.Ify_4)
 do
 
 	for i in x_faces do
-		for m = 1, N_angles do
-			x_faces[i].Ifx[m] = 0.0
+		for m = 1, N_angles/4 do
+			x_faces[i].Ifx_1[m] = 0.0
+			x_faces[i].Ifx_2[m] = 0.0
+			x_faces[i].Ifx_3[m] = 0.0
+			x_faces[i].Ifx_4[m] = 0.0
 		end
 	end
 
 	for i in y_faces do
 		for m = 1, N_angles do
-			y_faces[i].Ify[m] = 0.0
+			y_faces[i].Ify_1[m] = 0.0
+			y_faces[i].Ify_2[m] = 0.0
+			y_faces[i].Ify_3[m] = 0.0
+			y_faces[i].Ify_4[m] = 0.0
 		end
 	end
 
@@ -161,14 +170,9 @@ do
 
 	-- Now set the angle_value information, read in from file.
 
-  	-- todo: num angles
-  	var N   : int64[1]
   	var val : double[1]
 
   	var f = c.fopen(filename, "rb")
-  	get_number_angles(f, N)
-
-  	var limits = points.bounds
 
   	for i in angle_values do
   		read_val(f, val)
@@ -192,8 +196,16 @@ end
 
 task initialize(points : region(ispace(int2d), point))
 where
-  reads writes(points.T), writes(points.Ib, points.sigma, points.I, points.G,
-                                 points.Iiter, points.S)
+  reads writes(points.T,
+  	points.I_1,
+  	points.I_2,
+  	points.I_3,
+  	points.I_4,
+  	points.Iiter_1,
+  	points.Iiter_2,
+  	points.Iiter_3,
+  	points.Iiter_4), 
+  writes(points.Ib, points.sigma, points.G, points.S)
 do
 
   	-- First loop over all points to set the constant values.
@@ -211,9 +223,18 @@ do
 
 	    -- Intensities (cell-based)
 
-	    for m = 1, N_angles do
-			points[i].I[m]     = 0.0
-	    	points[i].Iiter[m] = 0.0
+	    for m = 1, N_angles/4 do
+			points[i].I_1[m]     = 0.0
+	    	points[i].Iiter_1[m] = 0.0
+
+	    	points[i].I_2[m]     = 0.0
+	    	points[i].Iiter_2[m] = 0.0
+
+	    	points[i].I_3[m]     = 0.0
+	    	points[i].Iiter_3[m] = 0.0
+
+	    	points[i].I_4[m]     = 0.0
+	    	points[i].Iiter_4[m] = 0.0
 		end
 	    
     	points[i].G = 0.0
@@ -230,7 +251,8 @@ end
 task source_term(points : region(ispace(int2d), point),
 				angle_values : region(ispace(int1d), angle_value))
 where
-  reads (points.Iiter, points.w, points.Ib, points.sigma, angle_values.w),
+  reads (points.Iiter_1, points.Iiter_2, points.Iiter_3, points.Iiter_4,
+  	points.Ib, points.sigma, angle_values.w),
   reads writes (points.S)
 do
 
@@ -244,8 +266,17 @@ do
   	for i = limits.lo.x, limits.hi.x do
     	for j = limits.lo.y, limits.hi.y do
       		points[{i,j}].S = (1.0-omega)*SB*points[{i,j}].sigma*points[{i,j}].Ib
-     	 	for m = 1, N_angles do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter[m]
+     	 	for m = 1, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_1[m]
+      		end
+      		for m = 1, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_2[m]
+      		end
+      		for m = 1, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_3[m]
+      		end
+      		for m = 1, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_4[m]
       		end
     	end
   	end
@@ -286,95 +317,25 @@ task make_interior_partition_x(faces : region(ispace(int2d), x_face),
 
 end
 
--- todo: swap which is first based on angles
--- 1 3
--- 2 4 
-task make_interior_partition_y_1(faces : region(ispace(int2d), y_face),
+
+task make_interior_partition_y(faces : region(ispace(int2d), y_face),
 							tiles : ispace(int2d),
 							ntiles : int64, nx : int64, ny : int64)
 	
 	var coloring = c.legion_domain_point_coloring_create()
-	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-		for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-			var tile = tiles[i][j]
-		    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
-			var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
-			var rect = rect2d {lo = lo, hi = hi}
-			c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-		end
+	for tile in tiles do
+	   	var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
+		var rect = rect2d {lo = lo, hi = hi}
+		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
 	end
 	var p = partition(disjoint, faces, coloring, tiles)
 	c.legion_domain_point_coloring_destroy(coloring)
 	return p
 end
 
--- rotate 90
--- 2 1
--- 4 3
-task make_interior_partition_y_2(faces : region(ispace(int2d), y_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
-	
-	var coloring = c.legion_domain_point_coloring_create()
-	-- todo: check bounds correct
-	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-		for i = [int](tiles.bounds.hi.x), [int](tiles.bounds.lo.x) - 1, -1 do
-			var tile = int2d{i,j}
-		    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
-			var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
-			var rect = rect2d {lo = lo, hi = hi}
-			c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-		end
-	end
-	var p = partition(disjoint, faces, coloring, tiles)
-	c.legion_domain_point_coloring_destroy(coloring)
-	return p
-end
 
--- rotate 180
--- 4 2
--- 3 1
-task make_interior_partition_y_3(faces : region(ispace(int2d), y_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
-	
-	var coloring = c.legion_domain_point_coloring_create()
-	for i = [int](tiles.bounds.hi.x), [int](tiles.bounds.lo.x) -1 , -1 do
-		for j = [int](tiles.bounds.hi.y), [int](tiles.bounds.lo.y) -1, -1 do
-			var tile = tiles[i][j]
-		    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
-			var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
-			var rect = rect2d {lo = lo, hi = hi}
-			c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-		end
-	end
-	var p = partition(disjoint, faces, coloring, tiles)
-	c.legion_domain_point_coloring_destroy(coloring)
-	return p
-end
-
--- rotate 270
--- 3 4
--- 1 2
-task make_interior_partition_y_4(faces : region(ispace(int2d), y_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64) 
-	
-	var coloring = c.legion_domain_point_coloring_create()
-	for j = [int](tiles.bounds.hi.y), [int](tiles.bounds.lo.y), -1 do
-		for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do	
-			var tile = int2d{i,j}
-		    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
-			var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
-			var rect = rect2d {lo = lo, hi = hi}
-			c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-		end
-	end
-	var p = partition(disjoint, faces, coloring, tiles)
-	c.legion_domain_point_coloring_destroy(coloring)
-	return p
-end
-
+--todo: need left and top ghost partititions too
 
 -- The ghost region is the right most column of each tile, over 1 
 -- (ghost region for tile 2 is rightmost column of tile 1)
@@ -384,8 +345,13 @@ task make_ghost_partition_x(faces : region(ispace(int2d), x_face),
 	var coloring = c.legion_domain_point_coloring_create()
 
 	for tile in tiles do
-		var lo = int2d { x = (tile.x) * n / ntiles - 1, y = tile.y * n / ntiles}
-		var hi = int2d { x = (tile.x) * n / ntiles - 1, y = (tile.y + 1) * n / ntiles - 1}
+		var lo = int2d { x = tile.x * nx / ntiles - 1, y = tile.y * ny / ntiles}
+		var hi = int2d { x = tile.x * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
+		-- Create an empty partition
+		if lo.x < 0 then
+			lo.x = 1
+			hi.x = 0
+		end
 		var rect = rect2d {lo = lo, hi = hi}
 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
 	end
@@ -403,8 +369,13 @@ task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
 	var coloring = c.legion_domain_point_coloring_create()
 
 	for tile in tiles do
-		var lo = int2d { x = tile.x * n / ntiles, y = (tile.y) * n / ntiles - 1}
-		var hi = int2d { x = (tile.x + 1) * n / ntiles - 1, y = (tile.y) * n / ntiles - 1}
+		var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles - 1}
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = tile.y * ny / ntiles - 1}
+		-- Create an empty partition in boundary case
+		if lo.y < 0 then
+			lo.y = 1
+			hi.y = 0
+		end
 		var rect = rect2d {lo = lo, hi = hi}
 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
 	end
@@ -421,11 +392,12 @@ task west_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.xi),
-	reads writes (faces.Ifx) do
+	reads writes (faces.Ifx_1, faces.Ifx_2, faces.Ifx_3, faces.Ifx_4) 
+do
 
 	-- Get array bounds
 
-  	var limits = points.bounds
+  	var limits = faces.bounds
 
  	 -- Temporary variables for the west bound
 
@@ -434,17 +406,53 @@ where
   	var Tw      : double = T_west
 
   	for j = limits.lo.y, limits.hi.y do
+
+  		-- Calculate reflect
+
   		reflect = 0
-  		for m = 1, N_angles do
+  		--todo: loops exclusive, indexed at 1?
+  		for m = 1, N_angles + 1 do
+  			var face_value : double = 0.0
+  			if m <= N_angles/4 then
+  				face_value = faces[{0,j}].Ifx_1[m]
+  			elseif m <= (N_angles/4)*2 then
+  				face_value = faces[{0,j}].Ifx_2[m - (N_angles/4)]
+  			elseif m <= (N_angles/4)*3 then
+  				face_value = faces[{0,j}].Ifx_3[m - (N_angles/4)*2]
+  			else
+  				face_value = faces[{0,j}].Ifx_4[m - (N_angles/4)*3]
+  			end
   			if angle_values[m].xi < 0 then
-  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].xi)*faces[{limits.lo.x,j}].Ifx[m]
+  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].xi)*face_value
   			end
   		end
-  		for m = 1, N_angles do
+
+
+  		-- Set Ifx values using reflect
+  		-- todo: check against original
+
+  		for m = 1, N_angles/4 + 1 do
+  			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
   			if angle_values[m].xi > 0 then
-  				faces[{0,j}].Ifx = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+  				faces[{0,j}].Ifx_1[m] = value
+  			end
+
+  			var angle : int = m + (N_angles/4)
+  			if angle_values[angle].xi > 0 then
+  				faces[{0,j}].Ifx_2[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 2
+  			if angle_values[angle].xi > 0 then
+  				faces[{0,j}].Ifx_3[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 3
+  			if angle_values[angle].xi > 0 then
+  				faces[{0,j}].Ifx_4[m] = value
   			end
   		end
+
   	end
 end
 
@@ -452,30 +460,67 @@ task east_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.xi),
-	reads writes (faces.Ifx) do
+	reads writes (faces.Ifx_1, faces.Ifx_2, faces.Ifx_3, faces.Ifx_4) 
+do
 
 	-- Get array bounds
 
-  	var limits = points.bounds
+  	var limits = faces.bounds
 
- 	 -- Temporary variables for the west bound
+ 	 -- Temporary variables for the east bound
 
   	var reflect : double = 0.0
   	var epsw    : double = emiss_east
   	var Tw      : double = T_east
 
   	for j = limits.lo.y, limits.hi.y do
+
+  		-- Calculate reflect
+
   		reflect = 0
-  		for m = 1, N_angles do
-  			if angle_values[m].xi < 0 then
-  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].xi)*faces[{limits.hi.x,j}].Ifx
+  		--todo: loops exclusive, indexed at 1?
+  		for m = 1, N_angles + 1 do
+  			var face_value : double = 0.0
+  			if m <= N_angles/4 then
+  				face_value = faces[{limits.hi.x,j}].Ifx_1[m]
+  			elseif m <= (N_angles/4)*2 then
+  				face_value = faces[{limits.hi.x,j}].Ifx_2[m - (N_angles/4)]
+  			elseif m <= (N_angles/4)*3 then
+  				face_value = faces[{limits.hi.x,j}].Ifx_3[m - (N_angles/4)*2]
+  			else
+  				face_value = faces[{limits.hi.x,j}].Ifx_4[m - (N_angles/4)*3]
   			end
-  		end
-  		for m = 1, N_angles do
   			if angle_values[m].xi > 0 then
-  				faces[{0,j}].Ifx = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*angle_values[m].xi*face_value
   			end
   		end
+
+
+  		-- Set Ifx values using reflect
+  		-- todo: check against original
+
+  		for m = 1, N_angles/4 + 1 do
+  			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+  			if angle_values[m].xi < 0 then
+  				faces[{limits.hi.x,j}].Ifx_1[m] = value
+  			end
+
+  			var angle : int = m + (N_angles/4)
+  			if angle_values[angle].xi < 0 then
+  				faces[{limits.hi.x,j}].Ifx_2[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 2
+  			if angle_values[angle].xi < 0 then
+  				faces[{limits.hi.x,j}].Ifx_3[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 3
+  			if angle_values[angle].xi < 0 then
+  				faces[{limits.hi.x,j}].Ifx_4[m] = value
+  			end
+  		end
+
   	end
 end
 
@@ -483,11 +528,12 @@ task north_bound(faces : region(ispace(int2d), y_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.eta),
-	reads writes (faces.Ify) do
+	reads writes (faces.Ify_1, faces.Ify_2, faces.Ify_3, faces.Ify_4)
+do
 
 	-- Get array bounds
 
-  	var limits = points.bounds
+  	var limits = faces.bounds
 
  	 -- Temporary variables for the west bound
 
@@ -496,15 +542,50 @@ where
   	var Tw      : double = T_north
 
   	for i = limits.lo.x, limits.hi.x do
+
+  		-- Calculate reflect
+
   		reflect = 0
-  		for m = 1, N_angles do
-  			if angle_values[m].eta < 0 then
-  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].eta)*faces[{i,limits.hi.y}].Ify
+  		--todo: loops exclusive, indexed at 1?
+  		for m = 1, N_angles + 1 do
+  			var face_value : double = 0.0
+  			if m <= N_angles/4 then
+  				face_value = faces[{i,limits.hi.y}].Ify_1[m]
+  			elseif m <= (N_angles/4)*2 then
+  				face_value = faces[{i,limits.hi.y}].Ify_2[m - (N_angles/4)]
+  			elseif m <= (N_angles/4)*3 then
+  				face_value = faces[{i,limits.hi.y}].Ify_3[m - (N_angles/4)*2]
+  			else
+  				face_value = faces[{i,limits.hi.y}].Ify_4[m - (N_angles/4)*3]
+  			end
+  			if angle_values[m].eta > 0 then
+  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*angle_values[m].eta*face_value
   			end
   		end
-  		for m = 1, N_angles do
-  			if angle_values[m].eta > 0 then
-  				faces[{0,j}].Ify = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+
+
+  		-- Set Ify values using reflect
+  		-- todo: check against original
+
+  		for m = 1, N_angles/4 + 1 do
+  			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+  			if angle_values[m].eta < 0 then
+  				faces[{i,limits.hi.y}].Ify_1[m] = value
+  			end
+
+  			var angle : int = m + (N_angles/4)
+  			if angle_values[angle].eta < 0 then
+  				faces[{i,limits.hi.y}].Ify_2[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 2
+  			if angle_values[angle].eta < 0 then
+  				faces[{i,limits.hi.y}].Ify_3[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 3
+  			if angle_values[angle].eta < 0 then
+  				faces[{i,limits.hi.y}].Ify_4[m] = value
   			end
   		end
   	end
@@ -514,12 +595,12 @@ task south_bound(faces : region(ispace(int2d), y_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.eta),
-	reads writes (faces.Ify)
+	reads writes (faces.Ify_1, faces.Ify_2, faces.Ify_3, faces.Ify_4)
 do
 
 	-- Get array bounds
 
-  	var limits = points.bounds
+  	var limits = faces.bounds
 
  	 -- Temporary variables for the west bound
 
@@ -528,17 +609,53 @@ do
   	var Tw      : double = T_south
 
   	for i = limits.lo.x, limits.hi.x do
+
+  		-- Calculate reflect
+
   		reflect = 0
-  		for m = 1, N_angles do
+  		--todo: loops exclusive, indexed at 1?
+  		for m = 1, N_angles + 1 do
+  			var face_value : double = 0.0
+  			if m <= N_angles/4 then
+  				face_value = faces[{i,0}].Ify_1[m]
+  			elseif m <= (N_angles/4)*2 then
+  				face_value = faces[{i,0}].Ify_2[m - (N_angles/4)]
+  			elseif m <= (N_angles/4)*3 then
+  				face_value = faces[{i,0}].Ify_3[m - (N_angles/4)*2]
+  			else
+  				face_value = faces[{i,0}].Ify_4[m - (N_angles/4)*3]
+  			end
   			if angle_values[m].eta < 0 then
-  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].eta)*faces[{i, limits.lo.y}].Ify
+  				reflect = reflect + (1.0-epsw)/pi*angle_values[m].w*cmath.fabs(angle_values[m].eta)*face_value
   			end
   		end
-  		for m = 1, N_angles do
+
+
+  		-- Set Ify values using reflect
+  		-- todo: check against original
+
+  		for m = 1, N_angles/4 + 1 do
+  			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
   			if angle_values[m].eta > 0 then
-  				faces[{0,j}].Ify = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+  				faces[{i,0}].Ify_1[m] = value
+  			end
+
+  			var angle : int = m + (N_angles/4)
+  			if angle_values[angle].eta > 0 then
+  				faces[{i,0}].Ify_2[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 2
+  			if angle_values[angle].eta > 0 then
+  				faces[{i,0}].Ify_3[m] = value
+  			end
+
+  			angle = m + (N_angles/4) * 3
+  			if angle_values[angle].eta > 0 then
+  				faces[{i,0}].Ify_4[m] = value
   			end
   		end
+
   	end
 end
 
