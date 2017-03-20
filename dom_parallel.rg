@@ -715,87 +715,95 @@ task sweep_1(points : region(ispace(int2d), point),
 		   ghost_y_faces : region(ispace(int2d), y_face),
 		   angle_values : region(ispace(int1d), angle_value))
 where
-  reads (angle_values.xi, angle_values.eta, points.S, ghost_x_faces.Ifx, ghost_y_faces.Ify),
-  reads writes(points.I, x_faces.Ifx, y_faces.Ify)
+  reads (angle_values.xi, angle_values.eta, points.S, points.sigma, ghost_x_faces.Ifx_1, ghost_y_faces.Ify_1),
+  reads writes(points.I_1, x_faces.Ifx_1, y_faces.Ify_1)
 do
 
   -- Get array bounds and some temporary index variables for sweeping
 
   var limits = points.bounds
 
+  -- this means indx is i + 1 when dindx is -1 (when travelling -x, use face in + direction)
+        -- indx = i - min(dindx,0) 
+        -- indy = j - min(dindy,0)
+
   var indx   : int64 = 0
   var indy   : int64 = 0
 
-  var dindx  : int64 = 0
-  var startx : int64 = 0
-  var endx   : int64 = 0
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x
 
-  var dindy  : int64 = 0
-  var starty : int64 = 0
-  var endy   : int64 = 0
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y
 
   
   -- Outer loop over all angles.
-  var start_angle = quadrant
-  var end_angle = quadrant+1
+  for m = 1, N_angles/4 + 1 do
 
-  for m = start_angle, end_angle do
+  	var angle : int64 = m
 
+  	--todo: delete
     -- Determine our sweeping direction. If xi > 0, angle points in +x,
     -- so we sweep from left to right. Otherwise, angle points in -x, 
     -- so sweep from right to left.
 
-    if (angle_values[m].xi > 0) then
-      dindx  = 1
-      startx = limits.lo.x
-      endx   = limits.hi.x
-    else
-      dindx  = -1
-      startx = limits.hi.x - 1
-      endx   = limits.lo.x - 1
-    end
+    -- if (angle_values[m].xi > 0) then
+    --   dindx  = 1
+    --   startx = limits.lo.x
+    --   endx   = limits.hi.x
+    -- else
+    --   dindx  = -1
+    --   startx = limits.hi.x - 1
+    --   endx   = limits.lo.x - 1
+    -- end
 
-    -- If eta > 0, angle points in +y, sp sweep bottom to top.
-    -- Otherwise, angle points in -y, so sweep from top to bottom.
+    -- -- If eta > 0, angle points in +y, sp sweep bottom to top.
+    -- -- Otherwise, angle points in -y, so sweep from top to bottom.
 
-    if (angle_values[m].eta > 0) then
-      dindy  = 1
-      starty = 0
-      endy   = limits.hi.y
-    else
-      dindy  = -1
-      starty = limits.hi.y - 1
-      endy   = -1
-    end
+    -- if (angle_values[m].eta > 0) then
+    --   dindy  = 1
+    --   starty = 0
+    --   endy   = limits.hi.y
+    -- else
+    --   dindy  = -1
+    --   starty = limits.hi.y - 1
+    --   endy   = -1
+    -- end
 
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-        -- Index of upwind x-face & y-face intensity
+      	--todo: update for other quadrants
+      	indx = i
+        indy = j
 
-        indx = i - min(dindx,0)
-        indy = j - min(dindy,0)
+        -- Index of upwind x-face & y-face intensity
 
         var face_x : int64 = 0
 
-        --todo: ghost
-        -- if (indx < 0) then
-        -- 	face_x = 
-        -- else
-        -- 	face_x = x_faces[{indx,j}].Ifx
-        -- end
+        -- todo: ghost
+        if (indx < 0) then
+        	-- face_x = 
+        else
+        	face_x = x_faces[{indx,j}].Ifx_1[angle]
+        end
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{i,j}].I = (points[{i,j}].S*dx*dy + cmath.fabs(angle_values[m].xi)*dy*x_faces[{indx,j}].Ifx/gamma + cmath.fabs(angle_values[m].eta)*dx*y_faces[{i,indy}].Ify/gamma)
-        /(sigma*dx*dy + cmath.fabs(angle_values[m].xi)*dy/gamma + cmath.fabs(angle_values[m].eta)*dx/gamma)
+        points[{i,j}].I_1[angle] = (points[{i,j}].S * dx * dy 
+        	+ cmath.fabs(angle_values[m].xi) * dy * x_faces[{indx,j}].Ifx_1[angle]/gamma 
+        	+ cmath.fabs(angle_values[m].eta) * dx * y_faces[{i,indy}].Ify_1[angle]/gamma)
+        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[m].xi) * dy/gamma + cmath.fabs(angle_values[m].eta) * dx/gamma)
 
         -- Compute downwind intensities on cell faces.
+        --todo: upwind not downwind
 
-        x_faces[{indx+dindx,j}].Ifx = (points[{i,j}].I - (1-gamma)*x_faces[{indx,j}].Ifx)/gamma
-        y_faces[{i,indy+dindy}].Ify = (points[{i,j}].I - (1-gamma)*y_faces[{i,indy}].Ify)/gamma
+        -- x_faces[{indx+dindx,j}].Ifx = (points[{i,j}].I - (1-gamma)*x_faces[{indx,j}].Ifx)/gamma
+        -- y_faces[{i,indy+dindy}].Ify = (points[{i,j}].I - (1-gamma)*y_faces[{i,indy}].Ify)/gamma
 
       end
     end
@@ -813,6 +821,8 @@ task main()
 	var N   : int64[1]
 
 	var nt : int64 = 4 -- # tiles per direction
+
+	var filename : rawstring = quad_file
 
 	-- Check the file containing the angle_values
 	-- todo: using constant number of angles
@@ -843,14 +853,16 @@ task main()
 
 	-- Initialize all arrays in our field space on the grid. 
 
-	initialize(points, filename)
+	initialize(points)
 
 	initialize_faces(x_faces, y_faces)
+
+	initialize_angle_values(angle_values, filename)
 
 	-- Tile partition cells
 	var tiles = ispace(int2d, {x = nt, y = nt})
 
-	var private_cells = make_interior_partition_1(points, tiles, nt, Nx, Ny)
+	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny)
 
 	-- Partition faces
 	var private_x_faces = make_interior_partition_x(x_faces, tiles, nt, Nx+1, Ny)
@@ -871,21 +883,21 @@ task main()
 	    -- Update the source term (in this problem, isotropic).
 
 	    for color in tiles do
-	   		source_term(private_cells[color])
+	   		source_term(private_cells[color], angle_values)
 	   	end
 
 	   	-- Update the grid boundary intensities.
 	
 	  	-- Update x faces (west bound/east bound)
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		west_bound(private_x_faces[0][j], angle_values)
-	  		east_bound(private_x_faces[Nx][j], angle_values)
+	  		west_bound(private_x_faces[{0,j}], angle_values)
+	  		east_bound(private_x_faces[{Nx,j}], angle_values)
 	  	end
 	  	
 	  	-- Update y faces (north bound/south bound)
 	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  		north_bound(private_y_faces[i][0], angle_values)
-	  		south_bound(private_y_faces[i][Ny], angle_values)
+	  		north_bound(private_y_faces[{i,0}], angle_values)
+	  		south_bound(private_y_faces[{i,Ny}], angle_values)
 	  	end
 
 	  	-- Perform the sweep for computing new intensities.
@@ -893,8 +905,8 @@ task main()
 	  	-- todo: 4 sweeps with 4 different orders for each angle quadrant
 
 	  	-- Quadrant 1 - +x, +y
-		for i = tiles.lo.x, tiles.hi.x + 1 do
-			for j = tiles.lo.y, tiles.hi.y + 1 do
+		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
 				sweep_1(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
 					ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
@@ -902,29 +914,29 @@ task main()
 		end 
 
 		-- Quadrant 2 - +x, -y
-		for i = tiles.lo.x, tiles.hi.x + 1 do
-			for j = tiles.hi.y, tiles.lo.y - 1, -1 do 
+		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+				-- sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					-- ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
 			end
 		end
 
 		-- Quadrant 3 - -x, +y
-		for i = tiles.hi.x, tiles.lo.x - 1, -1 do
-			for j = tiles.lo.y, tiles.hi.y + 1 do
+		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
+			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
-				sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+				-- sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					-- ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
 			end
 		end
 
 		-- Quadrant 4 - -x, -y
-		for i = tiles.hi.x, tiles.lo.x - 1, -1 do
-			for j = tiles.hi.y, tiles.lo.y - 1, -1 do 
+		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
+			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+				-- sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					-- ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
 			end
 		end
 
