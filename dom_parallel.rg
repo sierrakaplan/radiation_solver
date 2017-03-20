@@ -386,8 +386,6 @@ task make_ghost_partition_y(faces : region(ispace(int2d), y_face),
 
 end
 
--- todo: pass in all quadrants for both faces
--- pass all 4 quadrants of faces and all 4 angle_values
 task west_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
@@ -664,8 +662,7 @@ task sweep_1(points : region(ispace(int2d), point),
 		   y_faces : region(ispace(int2d), y_face),
 		   ghost_x_faces : region(ispace(int2d), x_face),
 		   ghost_y_faces : region(ispace(int2d), y_face),
-		   angle_values : region(ispace(int1d), angle_value),
-		   quadrant : int)
+		   angle_values : region(ispace(int1d), angle_value))
 where
   reads (angle_values.xi, angle_values.eta, points.S, ghost_x_faces.Ifx, ghost_y_faces.Ify),
   reads writes(points.I, x_faces.Ifx, y_faces.Ify)
@@ -767,15 +764,7 @@ task main()
 	var nt : int64 = 4 -- # tiles per direction
 
 	-- Check the file containing the angle_values
-
 	-- todo: using constant number of angles
-
-	var filename : rawstring = quad_file
-	var f = c.fopen(filename, "rb")
-	get_number_angles(f, N)
-	c.fclose(f)
-	c.printf(' Number of DOM angles: %d\n', N[0])
-	N_angles = N[0]
 
 
 	-- Create a region from our grid index space (angles + 2D grid in space)
@@ -847,11 +836,42 @@ task main()
 	  	-- Perform the sweep for computing new intensities.
 
 	  	-- todo: 4 sweeps with 4 different orders for each angle quadrant
-		for color in tiles do
+
+	  	-- Quadrant 1 - +x, +y
+		for i = tiles.lo.x, tiles.hi.x + 1 do
+			for j = tiles.lo.y, tiles.hi.y + 1 do
 			
-			sweep_1(private_cells[color], private_x_faces[color], private_y_faces[color], 
-				ghost_x_faces[color], ghost_y_faces[color], angle_values)
-		end  
+				sweep_1(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+			end
+		end 
+
+		-- Quadrant 2 - +x, -y
+		for i = tiles.lo.x, tiles.hi.x + 1 do
+			for j = tiles.hi.y, tiles.lo.y - 1, -1 do 
+
+				sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+			end
+		end
+
+		-- Quadrant 3 - -x, +y
+		for i = tiles.hi.x, tiles.lo.x - 1, -1 do
+			for j = tiles.lo.y, tiles.hi.y + 1 do
+
+				sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+			end
+		end
+
+		-- Quadrant 4 - -x, -y
+		for i = tiles.hi.x, tiles.lo.x - 1, -1 do
+			for j = tiles.hi.y, tiles.lo.y - 1, -1 do 
+
+				sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+					ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+			end
+		end
 
   
   	-- for all quadrants
@@ -872,9 +892,6 @@ end
 
 regentlib.start(main)
 
-
--- +x+y, +x- y, -x+y, -x-y
--- top left, bottom left, top right, bottom right
 
 
 
