@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 100
-local Ny = 100
+local Nx = 4
+local Ny = 4
 
 --todo: Read from file in Lua
 
@@ -134,6 +134,7 @@ fspace y_face {
 	Ify_4 : double[N_angles/4] 		-- y face intensity per angle
 }
 
+--todo: change to fill
 task initialize_faces(x_faces : region(ispace(int2d), x_face),
 					  y_faces : region(ispace(int2d), y_face))
 where reads writes(x_faces.Ifx_1, y_faces.Ify_1,
@@ -143,7 +144,7 @@ where reads writes(x_faces.Ifx_1, y_faces.Ify_1,
 do
 
 	for i in x_faces do
-		for m = 1, N_angles/4 do
+		for m = 0, N_angles/4 do
 			x_faces[i].Ifx_1[m] = 0.0
 			x_faces[i].Ifx_2[m] = 0.0
 			x_faces[i].Ifx_3[m] = 0.0
@@ -152,7 +153,7 @@ do
 	end
 
 	for i in y_faces do
-		for m = 1, N_angles do
+		for m = 0, N_angles/4 do
 			y_faces[i].Ify_1[m] = 0.0
 			y_faces[i].Ify_2[m] = 0.0
 			y_faces[i].Ify_3[m] = 0.0
@@ -173,6 +174,8 @@ do
   	var val : double[1]
 
   	var f = c.fopen(filename, "rb")
+
+  	read_val(f, val) -- gets rid of num angles
 
   	for i in angle_values do
   		read_val(f, val)
@@ -223,7 +226,7 @@ do
 
 	    -- Intensities (cell-based)
 
-	    for m = 1, N_angles/4 do
+	    for m = 0, N_angles/4 do
 			points[i].I_1[m]     = 0.0
 	    	points[i].Iiter_1[m] = 0.0
 
@@ -258,27 +261,29 @@ do
 
   	-- Get array bounds
 
-  	var  limits = points.bounds
+  	var limits = points.bounds
 
   	-- Loop over all angles and grid cells to compute the source term
   	-- for the current iteration.
 
-  	for i = limits.lo.x, limits.hi.x do
-    	for j = limits.lo.y, limits.hi.y do
+  	for i = limits.lo.x, limits.hi.x + 1 do
+    	for j = limits.lo.y, limits.hi.y + 1 do
       		points[{i,j}].S = (1.0-omega)*SB*points[{i,j}].sigma*points[{i,j}].Ib
-     	 	for m = 1, N_angles/4 do
+     	 	for m = 0, N_angles/4 do
         		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_1[m]
       		end
-      		for m = 1, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_2[m]
+      		for m = 0, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+N_angles/4].w*points[{i,j}].Iiter_2[m]
       		end
-      		for m = 1, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_3[m]
+      		for m = 0, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+(N_angles/4)*2].w*points[{i,j}].Iiter_3[m]
       		end
-      		for m = 1, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_4[m]
+      		for m = 0, N_angles/4 do
+        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+(N_angles/4)*3].w*points[{i,j}].Iiter_4[m]
       		end
+      		c.printf("source term %d %d = %lf ", i, j, points[{i,j}].S)
     	end
+    	c.printf("\n")
   	end
 
 end
@@ -453,19 +458,18 @@ do
   	var epsw    : double = emiss_west
   	var Tw      : double = T_west
 
-  	for j = limits.lo.y, limits.hi.y do
+  	for j = limits.lo.y, limits.hi.y + 1 do
 
   		-- Calculate reflect
 
   		reflect = 0
-  		--todo: loops exclusive, indexed at 1?
-  		for m = 1, N_angles + 1 do
+  		for m = 0, N_angles do
   			var face_value : double = 0.0
-  			if m <= N_angles/4 then
+  			if m < N_angles/4 then
   				face_value = faces[{limits.lo.x,j}].Ifx_1[m]
-  			elseif m <= (N_angles/4)*2 then
+  			elseif m < (N_angles/4)*2 then
   				face_value = faces[{limits.lo.x,j}].Ifx_2[m - (N_angles/4)]
-  			elseif m <= (N_angles/4)*3 then
+  			elseif m < (N_angles/4)*3 then
   				face_value = faces[{limits.lo.x,j}].Ifx_3[m - (N_angles/4)*2]
   			else
   				face_value = faces[{limits.lo.x,j}].Ifx_4[m - (N_angles/4)*3]
@@ -477,29 +481,35 @@ do
 
 
   		-- Set Ifx values using reflect
-  		-- todo: check against original
 
-  		for m = 1, N_angles/4 + 1 do
+  		for m = 0, N_angles/4 do
   			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-  			if angle_values[m].xi > 0 then
+
+  			var angle : int = m
+  			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_1[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_1[m])
   			end
 
-  			var angle : int = m + (N_angles/4)
+  			angle = m + (N_angles/4)
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_2[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_3[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_4[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_4[m])
   			end
   		end
+  		c.printf("\n")
 
   	end
 end
@@ -521,19 +531,18 @@ do
   	var epsw    : double = emiss_east
   	var Tw      : double = T_east
 
-  	for j = limits.lo.y, limits.hi.y do
+  	for j = limits.lo.y, limits.hi.y+1 do
 
   		-- Calculate reflect
 
   		reflect = 0
-  		--todo: loops exclusive, indexed at 1?
-  		for m = 1, N_angles + 1 do
+  		for m = 0, N_angles do
   			var face_value : double = 0.0
-  			if m <= N_angles/4 then
+  			if m < N_angles/4 then
   				face_value = faces[{limits.hi.x,j}].Ifx_1[m]
-  			elseif m <= (N_angles/4)*2 then
+  			elseif m < (N_angles/4)*2 then
   				face_value = faces[{limits.hi.x,j}].Ifx_2[m - (N_angles/4)]
-  			elseif m <= (N_angles/4)*3 then
+  			elseif m < (N_angles/4)*3 then
   				face_value = faces[{limits.hi.x,j}].Ifx_3[m - (N_angles/4)*2]
   			else
   				face_value = faces[{limits.hi.x,j}].Ifx_4[m - (N_angles/4)*3]
@@ -545,27 +554,32 @@ do
 
 
   		-- Set Ifx values using reflect
-  		-- todo: check against original
 
-  		for m = 1, N_angles/4 + 1 do
+  		for m = 0, N_angles/4 do
   			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-  			if angle_values[m].xi < 0 then
+
+  			var angle : int = m
+  			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_1[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_1[m])
   			end
 
-  			var angle : int = m + (N_angles/4)
+  			angle = m + (N_angles/4)
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_2[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_3[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_4[m] = value
+  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_4[m])
   			end
   		end
 
@@ -589,19 +603,18 @@ do
   	var epsw    : double = emiss_north
   	var Tw      : double = T_north
 
-  	for i = limits.lo.x, limits.hi.x do
+  	for i = limits.lo.x, limits.hi.x+1 do
 
   		-- Calculate reflect
 
   		reflect = 0
-  		--todo: loops exclusive, indexed at 1?
-  		for m = 1, N_angles + 1 do
+  		for m = 0, N_angles do
   			var face_value : double = 0.0
-  			if m <= N_angles/4 then
+  			if m < N_angles/4 then
   				face_value = faces[{i,limits.hi.y}].Ify_1[m]
-  			elseif m <= (N_angles/4)*2 then
+  			elseif m < (N_angles/4)*2 then
   				face_value = faces[{i,limits.hi.y}].Ify_2[m - (N_angles/4)]
-  			elseif m <= (N_angles/4)*3 then
+  			elseif m < (N_angles/4)*3 then
   				face_value = faces[{i,limits.hi.y}].Ify_3[m - (N_angles/4)*2]
   			else
   				face_value = faces[{i,limits.hi.y}].Ify_4[m - (N_angles/4)*3]
@@ -613,29 +626,35 @@ do
 
 
   		-- Set Ify values using reflect
-  		-- todo: check against original
 
-  		for m = 1, N_angles/4 + 1 do
+  		for m = 0, N_angles/4 do
   			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-  			if angle_values[m].eta < 0 then
+
+  			var angle : int = m
+  			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_1[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_1[m])
   			end
 
-  			var angle : int = m + (N_angles/4)
+  			angle = m + (N_angles/4)
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_2[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_3[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_4[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_4[m])
   			end
   		end
+  		c.printf("\n")
   	end
 end
 
@@ -656,19 +675,19 @@ do
   	var epsw    : double = emiss_south
   	var Tw      : double = T_south
 
-  	for i = limits.lo.x, limits.hi.x do
+  	for i = limits.lo.x, limits.hi.x+1 do
 
   		-- Calculate reflect
 
   		reflect = 0
   		--todo: loops exclusive, indexed at 1?
-  		for m = 1, N_angles + 1 do
+  		for m = 0, N_angles do
   			var face_value : double = 0.0
-  			if m <= N_angles/4 then
+  			if m < N_angles/4 then
   				face_value = faces[{i,limits.lo.y}].Ify_1[m]
-  			elseif m <= (N_angles/4)*2 then
+  			elseif m < (N_angles/4)*2 then
   				face_value = faces[{i,limits.lo.y}].Ify_2[m - (N_angles/4)]
-  			elseif m <= (N_angles/4)*3 then
+  			elseif m < (N_angles/4)*3 then
   				face_value = faces[{i,limits.lo.y}].Ify_3[m - (N_angles/4)*2]
   			else
   				face_value = faces[{i,limits.lo.y}].Ify_4[m - (N_angles/4)*3]
@@ -682,27 +701,34 @@ do
   		-- Set Ify values using reflect
   		-- todo: check against original
 
-  		for m = 1, N_angles/4 + 1 do
+  		for m = 0, N_angles/4 do
   			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+
+  			var angle : int = m
   			if angle_values[m].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_1[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_1[m])
   			end
 
-  			var angle : int = m + (N_angles/4)
+  			angle = m + (N_angles/4)
   			if angle_values[angle].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_2[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_3[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_4[m] = value
+  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_4[m])
   			end
   		end
+  		c.printf("\n")
 
   	end
 end
@@ -736,7 +762,7 @@ do
 
   
   -- Outer loop over all angles.
-  for m = 1, N_angles/4 + 1 do
+  for m = 0, N_angles/4 do
 
   	var angle : int64 = m
 
@@ -813,7 +839,7 @@ do
 
   
   -- Outer loop over all angles.
-  for m = 1, N_angles/4 + 1 do
+  for m = 0, N_angles/4 do
 
   	var angle : int64 = m + N_angles/4
 
@@ -889,7 +915,7 @@ do
 
   
   -- Outer loop over all angles.
-  for m = 1, N_angles/4 + 1 do
+  for m = 0, N_angles/4 do
 
   	var angle : int64 = m + (N_angles/4)*2
 
@@ -965,7 +991,7 @@ do
 
   
   -- Outer loop over all angles.
-  for m = 1, N_angles/4 + 1 do
+  for m = 0, N_angles/4 do
 
   	var angle : int64 = m + (N_angles/4) *3
 
@@ -1023,19 +1049,19 @@ do
  	var res : double = 0.0
   	var limits = points.bounds
 
-  	for m = 1, N_angles/4 + 1 do
-    	for i = limits.lo.x, limits.hi.x do
-      		for j = limits.lo.y, limits.hi.y do
-        		res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))
+  	for m = 0, N_angles/4 do
+    	for i = limits.lo.x, limits.hi.x + 1 do
+      		for j = limits.lo.y, limits.hi.y + 1 do
+        		res = res + (1.0/(Nx*Ny*N_angles+1))
           			*cmath.pow((points[{i,j}].I_1[m]-points[{i,j}].Iiter_1[m]),2.0)/cmath.pow((points[{i,j}].I_1[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))
+          		res = res + (1.0/(Nx*Ny*N_angles+1))
           			*cmath.pow((points[{i,j}].I_2[m]-points[{i,j}].Iiter_2[m]),2.0)/cmath.pow((points[{i,j}].I_2[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))
+          		res = res + (1.0/(Nx*Ny*N_angles+1))
           			*cmath.pow((points[{i,j}].I_3[m]-points[{i,j}].Iiter_3[m]),2.0)/cmath.pow((points[{i,j}].I_3[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))
+          		res = res + (1.0/(Nx*Ny*N_angles+1))
           			*cmath.pow((points[{i,j}].I_4[m]-points[{i,j}].Iiter_4[m]),2.0)/cmath.pow((points[{i,j}].I_4[m]),2.0)
       		end
     	end
@@ -1053,7 +1079,7 @@ do
   	-- Update the intensity before moving to the next iteration.
 
   	for i in points do 
-  		for m = 1, N_angles/4+1 do
+  		for m = 0, N_angles/4 do
   			points[i].Iiter_1[m] = points[i].I_1[m]
   			points[i].Iiter_2[m] = points[i].I_2[m]
   			points[i].Iiter_3[m] = points[i].I_3[m]
@@ -1074,7 +1100,7 @@ do
   	var limits = points.bounds
   	for i = limits.lo.x, limits.hi.x do
     	for j = limits.lo.y, limits.hi.y do
-      		for m = 1, N_angles/4 + 1 do
+      		for m = 0, N_angles/4 do
       			var angle : int = m
         		points[{i,j}].G = points[{i,j}].G + angle_values[angle].w*points[{i,j}].I_1[m]
         		angle = m + N_angles/4
@@ -1237,6 +1263,7 @@ task main()
     	
     
 		t = t + 1
+		break --todo: delete
 
 	end
 

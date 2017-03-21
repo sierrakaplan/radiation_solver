@@ -26,12 +26,12 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "radiation_solver/S8.dat"
+local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 100
-local Ny = 100
+local Nx = 4
+local Ny = 4
 
 -- Domain size
 
@@ -207,7 +207,9 @@ do
       for m = limits.lo.x, limits.hi.x + 1 do
         points[{0,i,j}].S = points[{0,i,j}].S + omega*points[{0,i,j}].sigma/(4.0*pi)*points[{m,0,0}].w*points[{m,i,j}].Iiter
       end
+      c.printf("source term %d %d = %lf ", i, j, points[{0,i,j}].S)
     end
+    c.printf("\n")
   end
 
 end
@@ -240,8 +242,10 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].xi > 0 then
         points[{m,0,j}].Ifx = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+        c.printf("Ifx y=%d angle=%d = %lf ", j, m, points[{m,0,j}].Ifx)
       end
     end
+    c.printf("\n")
   end
 
 end
@@ -274,8 +278,10 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].xi < 0 then
         points[{m,Nx,j}].Ifx = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+        c.printf("Ifx y=%d angle=%d = %lf ", j, m, points[{m,Nx,j}].Ifx)
       end
     end
+    c.printf("\n")
   end
 
 end
@@ -308,8 +314,10 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].eta > 0 then
         points[{m,i,0}].Ify = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+        c.printf("Ify y=%d angle=%d = %lf ", i, m, points[{m,i,0}].Ify)
       end
     end
+    c.printf("\n")
   end
 
 end
@@ -342,8 +350,10 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].eta < 0 then
         points[{m,i,Ny}].Ify = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
+        c.printf("Ify y=%d angle=%d = %lf ", i, m, points[{m,i,Ny}].Ify)
       end
     end
+    c.printf("\n")
   end
 
 end
@@ -383,12 +393,12 @@ do
       dindx  = 1
       startx = 0
       endx   = Nx
-      c.printf("+x")
+      -- c.printf("+x")
     else
       dindx  = -1
       startx = Nx-1
       endx   = -1
-      c.printf("-x")
+      -- c.printf("-x")
     end
 
     -- If eta > 0, angle points in +y, sp sweep bottom to top.
@@ -398,12 +408,12 @@ do
       dindy  = 1
       starty = 0
       endy   = Ny
-      c.printf("+y\n")
+      -- c.printf("+y\n")
     else
       dindy  = -1
       starty = Ny-1
       endy   = -1
-      c.printf("-y\n")
+      -- c.printf("-y\n")
     end
 
     -- Use our direction and increments for the sweep.
@@ -602,6 +612,7 @@ task main()
         
     update(points)
     t = t + 1
+    break --todo: delete
 
   end
 
