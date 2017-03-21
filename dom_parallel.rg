@@ -1141,10 +1141,12 @@ task main()
 	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny)
 
 	-- Partition faces
+	c.printf("partition faces\n")
 	var private_x_faces = make_interior_partition_x(x_faces, tiles, nt, Nx+1, Ny)
 
 	var private_y_faces = make_interior_partition_y(y_faces, tiles, nt, Nx, Ny+1)
 
+	c.printf("partition ghost faces\n")
 	var ghost_x_faces_lo = make_ghost_partition_x_lo(x_faces, tiles, nt, Nx+1, Ny)
 
 	var ghost_x_faces_hi = make_ghost_partition_x_hi(x_faces, tiles, nt, Nx+1, Ny)
@@ -1158,6 +1160,7 @@ task main()
     
 	    -- Update the source term (in this problem, isotropic).
 
+	    c.printf("update source term\n")
 	    for color in tiles do
 	   		source_term(private_cells[color], angle_values)
 	   	end
@@ -1165,56 +1168,62 @@ task main()
 	   	-- Update the grid boundary intensities.
 	
 	  	-- Update x faces (west bound/east bound)
+	  	c.printf("update x faces\n")
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		west_bound(private_x_faces[{0,j}], angle_values)
+	  		-- west_bound(private_x_faces[{0,j}], angle_values)
 	  		east_bound(private_x_faces[{Nx,j}], angle_values)
 	  	end
 	  	
-	  	-- Update y faces (north bound/south bound)
-	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  		north_bound(private_y_faces[{i,0}], angle_values)
-	  		south_bound(private_y_faces[{i,Ny}], angle_values)
-	  	end
+	  	-- -- Update y faces (north bound/south bound)
+	  	-- c.printf("update y faces\n")
+	  	-- for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
+	  	-- 	north_bound(private_y_faces[{i,0}], angle_values)
+	  	-- 	south_bound(private_y_faces[{i,Ny}], angle_values)
+	  	-- end
 
 	  	-- Perform the sweep for computing new intensities.
 
 	  	-- todo: 4 sweeps with 4 different orders for each angle quadrant
 
 	  	-- Quadrant 1 - +x, +y
-		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
-			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
+	 --  	c.printf("sweep quadrant 1\n")
+		-- for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+		-- 	for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
-				sweep_1(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
-			end
-		end 
+		-- 		sweep_1(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+		-- 			ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+		-- 	end
+		-- end 
 
 		-- Quadrant 2 - +x, -y
-		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
-			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
+		-- c.printf("sweep quadrant 2\n")
+		-- for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+		-- 	for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
-			end
-		end
+		-- 		sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+		-- 			ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+		-- 	end
+		-- end
 
-		-- Quadrant 3 - -x, +y
-		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
-			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
+		-- -- Quadrant 3 - -x, +y
+		-- c.printf("sweep quadrant 3\n")
+		-- for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
+		-- 	for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
-				sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
-			end
-		end
+		-- 		sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+		-- 			ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
+		-- 	end
+		-- end
 
-		-- Quadrant 4 - -x, -y
-		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
-			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
+		-- -- Quadrant 4 - -x, -y
+		-- c.printf("sweep quadrant 4\n")
+		-- for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
+		-- 	for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
-					ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
-			end
-		end
+		-- 		sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+		-- 			ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
+		-- 	end
+		-- end
 
   		-- Compute the residual and output to the screen.
   		res = 0.0
