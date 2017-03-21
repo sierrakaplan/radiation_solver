@@ -723,10 +723,6 @@ do
 
   var limits = points.bounds
 
-  -- this means indx is i + 1 when dindx is -1 (when travelling -x, use face in + direction)
-        -- indx = i - min(dindx,0) 
-        -- indy = j - min(dindy,0)
-
   var indx   : int64 = 0
   var indy   : int64 = 0
 
@@ -744,53 +740,14 @@ do
 
   	var angle : int64 = m
 
-  	--todo: delete
-    -- Determine our sweeping direction. If xi > 0, angle points in +x,
-    -- so we sweep from left to right. Otherwise, angle points in -x, 
-    -- so sweep from right to left.
-
-    -- if (angle_values[m].xi > 0) then
-    --   dindx  = 1
-    --   startx = limits.lo.x
-    --   endx   = limits.hi.x
-    -- else
-    --   dindx  = -1
-    --   startx = limits.hi.x - 1
-    --   endx   = limits.lo.x - 1
-    -- end
-
-    -- -- If eta > 0, angle points in +y, sp sweep bottom to top.
-    -- -- Otherwise, angle points in -y, so sweep from top to bottom.
-
-    -- if (angle_values[m].eta > 0) then
-    --   dindy  = 1
-    --   starty = 0
-    --   endy   = limits.hi.y
-    -- else
-    --   dindy  = -1
-    --   starty = limits.hi.y - 1
-    --   endy   = -1
-    -- end
-
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      	--todo: update for other quadrants
+      	--todo: update for other quadrants (in negative direction, indx is i+1?)
       	indx = i
         indy = j
-
-        -- Index of upwind x-face & y-face intensity
-
-        var face_x : int64 = 0
-
-        -- todo: ghost
-        if (indx < 0) then
-        	-- face_x = 
-        else
-        	face_x = x_faces[{indx,j}].Ifx_1[angle]
-        end
 
         -- Integrate to compute cell-centered value of I.
 
@@ -799,11 +756,27 @@ do
         	+ cmath.fabs(angle_values[m].eta) * dx * y_faces[{i,indy}].Ify_1[angle]/gamma)
         	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[m].xi) * dy/gamma + cmath.fabs(angle_values[m].eta) * dx/gamma)
 
-        -- Compute downwind intensities on cell faces.
-        --todo: upwind not downwind
+        -- Compute intensities on cell faces from upwind.
+        -- Use ghost regions if needed
+        var upwind_x_value : double = 0.0
+        if indx-dindx < 0 then
+        	var ghost_x_limits = ghost_x_faces.bounds
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_1[m]
+        else 
+        	upwind_x_value = x_faces[{indx-dindx,j}].Ifx_1[m]
+        end
 
-        -- x_faces[{indx+dindx,j}].Ifx = (points[{i,j}].I - (1-gamma)*x_faces[{indx,j}].Ifx)/gamma
-        -- y_faces[{i,indy+dindy}].Ify = (points[{i,j}].I - (1-gamma)*y_faces[{i,indy}].Ify)/gamma
+        var upwind_y_value : double = 0.0
+        if indy-dindy < 0 then
+        	var ghost_y_limits = ghost_y_faces.bounds
+        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_1[m]
+        else 
+        	upwind_y_value = y_faces[{i,indy-dindy}].Ify_1[m]
+        end
+
+
+        x_faces[{indx, j}].Ifx_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+        y_faces[{i, indy}].Ify_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
 
       end
     end
