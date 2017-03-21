@@ -1170,16 +1170,16 @@ task main()
 	  	-- Update x faces (west bound/east bound)
 	  	c.printf("update x faces\n")
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		-- west_bound(private_x_faces[{0,j}], angle_values)
-	  		east_bound(private_x_faces[{Nx,j}], angle_values)
+	  		west_bound(private_x_faces[{0,j}], angle_values)
+	  		-- east_bound(private_x_faces[{Nx,j}], angle_values)
 	  	end
 	  	
-	  	-- -- Update y faces (north bound/south bound)
-	  	-- c.printf("update y faces\n")
-	  	-- for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  	-- 	north_bound(private_y_faces[{i,0}], angle_values)
-	  	-- 	south_bound(private_y_faces[{i,Ny}], angle_values)
-	  	-- end
+	  	-- Update y faces (north bound/south bound)
+	  	c.printf("update y faces\n")
+	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
+	  		north_bound(private_y_faces[{i,0}], angle_values)
+	  		-- south_bound(private_y_faces[{i,Ny}], angle_values)
+	  	end
 
 	  	-- Perform the sweep for computing new intensities.
 
