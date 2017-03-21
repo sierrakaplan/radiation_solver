@@ -759,7 +759,7 @@ do
         -- Compute intensities on cell faces from upwind.
         -- Use ghost regions if needed
         var upwind_x_value : double = 0.0
-        if indx-dindx < 0 then
+        if indx-dindx < x_faces.bounds.lo.x then
         	var ghost_x_limits = ghost_x_faces.bounds
         	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_1[m]
         else 
@@ -767,7 +767,7 @@ do
         end
 
         var upwind_y_value : double = 0.0
-        if indy-dindy < 0 then
+        if indy-dindy < y_faces.bounds.lo.y then
         	var ghost_y_limits = ghost_y_faces.bounds
         	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_1[m]
         else 
