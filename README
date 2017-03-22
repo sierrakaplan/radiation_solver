@@ -1,31 +1,145 @@
-Much easier to use a 2D field space to represent grid and either use arrays of angle values or different regions to include angles,
-than a 3D space with angles (especially because most values are constant, not per angle)
+README for parallel version of Radiation Solver in Regent
 
-When doing a sweep, the cell centers only need the values of the neighboring faces to update - solution is to separate faces and
-cell values into separate field spaces. Also to make the x and y face values different field spaces since different faces are needed
-for different sweeps (depending on the angle).
+----------------------------------------------------------------------
 
-To partition this grid I partition the faces and cell values each into tiles. Then to avoid having to pass an entire extra tile of faces
-for the boundary condition to each sweep call I also create ghost partitions for both the x and y faces.
+I converted a serial version of the radiation solver to a parallel
+version in Regent, making use of data partitioning to allow for maximum
+parallelism and the minimum amount of data being passed between tasks 
+(and therefore possibly between nodes). 
 
-Because each quadrant of angles needs to start at a different corner of the grid they must somehow be separated. One choice was to have
-4 different regions of field spaces, each only including an array of 1/4 of the angle intensities. Another was to include 4 arrays of
-intensities in each field space (faces and cell values). The tradeoffs between these two approaches:
+------------------
 
-4 regions would mean I have to create 4 sets of partitions for each and I would have to divide the cell field space yet again into the
-values that don't depend on angle and the values that do (since otherwise there'd be inconsistencies across the 4 copies of each value.)
-I would also have to make different code to partition each region so that I could call a sweep call in the same order every time,
-but I would only need a single sweep task launch. Updating the source term and boundaries would be more complicated as well because they
-require summing across all angles, requiring that I match up the tiles with the same x,y coordinates across all 4 regions and pass all 4
-to the call to update the source term or the boundaries.
-However I wouldn't need to use meta programming and the compile time would be shorter.
+Background
 
-Using 4 arrays of intensities in each field space means that I need to create 4 different sweep tasks, since each will need to update a
-different array of intensities. I also need to update 4 different arrays in each boundary intensity task. However updating the boundaries
-and the source term is simpler because I just sum across all 4 arrays contained in the same tile, rather than needing 4 tiles. Instead of
-creating 4 different partition tasks for the cell centers, x and y faces, and ghost regions (5 * 4 = 20 partition tasks) I will just launch
-the sweep tasks in 4 different orders across the tiles and only create 1 partition for each.
+------------------
 
-I chose to do the second approach because in the end I decided it was less complex.
+Regent is a language embedded in the host language Lua that communicates
+with the runtime system Legion. It uses sequential semantics but parallelizes
+tasks by finding the dependence graph between sibling tasks. Data is formatted 
+in Regions, which are the cross product of index spaces and field spaces. 
+A field space is like a struct containing different fields, and index spaces
+can be multidimensional. The programmer is responsible for writing tasks, 
+each of which declares which region/s it reads from and or writes to. 
 
-(note: need left and top ghost partitions too)
+The radiation solver iteratively computes radiation across a grid from many
+angles. First it computes an initial value in each cell center across all
+angles, then it computes the values on the boundary cell faces (west, east,
+north, and south), and then it performs a sweep across the grid for every
+angle. In each sweep it updates every cell center from its upwind cell faces
+and then updates its downwind cell faces. Finally it computes a residual value
+across all angles on the cell center intensities and stops when the residual
+converges.
+
+The serial version of the radiation solver had one giant field space containing
+fields needed for every angle and for every cell in the grid, used with a 3D
+index space to create a 3D region. This included fields that were constant
+for each angle or constant for each x,y cell. The entire region was passed to
+each call to update the source term, the boundaries, and sweep. 
+
+
+------------------
+
+Restructuring Data
+
+------------------
+
+The most important part of writing good parallelizable code in Regent is having
+a good partitioning scheme for the data. Since the sweep call is the intensive 
+part of this program we started by looking at how we could parallelize sweep. 
+The first thing that made sense to do is to group angles by quadrant and sweep
+for each angle in this quadrant at once, since they would each have the same
+upwind and downwind faces. We could then partition the grid into tiles and call
+sweep for each tile. Since each tile requires information from its two 
+upwind tiles these calls wouldn't take place entirely in parallel, but sweep
+calls to every tile along a diagonal could be parallelized. Because of Regent's
+dependence graph, as long as calls to sweep are written in the correct order
+(upwind tiles first) their execution would be in the correct order as well.
+
+Once I had the general picture of how to write the sweep code, I could restructure
+the data. Since w, xi, and eta were constant for each angle it made sense to put
+them in a separate field space and create a 1D region out of them. That left
+values such as S (the source term) that existed for each x,y cell and were not
+dependent on angle and values that were dependent on x,y and angle. These are the
+cell center intensities and the face intensities, which are updated per angle
+so that each sweep can take place in parallel. The integration of the
+overall intensity is calculated once at the end. To minimize the amount of upwind
+information needed for each sweep call (the amount of a previous tile) I
+separated the x face intensity and the y face intensity values into their own 
+field spaces. A cell center intensity is updated based on its upwind face
+intensity values, so a sweep call now would only need its current tile and one
+row/column of the upwind x and y face tiles. Also there is 1 more face than
+cell center (ie there are Nx by Ny cell centers and (Nx+1) by Ny x face values),
+so I wanted to create a separate region with a slightly different index space
+for each face.
+
+The tricky decision was what to do with the cell center intensities and
+the face intensities, which need to be stored per angle. The easiest way to
+do this was to have the field space contain an array of intensities, with a
+size of 1/4 the number of angles. Since we were separating the angles by 
+quadrant there were then two options: create 4 different regions from each
+field space (4 regions of cell centers, x faces, and y faces) and partition
+each separately, then call sweep by passing one tile in from each region, 
+or create 4 arrays in each field space. Each approach had the following pros
+and cons:
+
+Creating 4 regions would mean creating 4 partitions for the cell centers and
+faces (creating 12 partitions in total). I could use the same call to sweep
+for each region which would be simpler since the same field would be written
+to and read from in each region. However updating the source term and
+the boundaries and calculating the residual would be more complicated because
+I'd have to pass in all 4 regions since each requires summing values across
+all the angles. The worst part would be I'd have to create a separate field
+space for cell values that don't depend on angle and this would create more
+complexity, since I'd have to create yet another region and pass it to each
+task.
+
+On the other hand using 4 arrays of intensities requires writing 4 different
+sweep calls, since each reads/writes from a different field in the region
+(quadrant 1 intensities vs. quadrant 2 intensities). Rather than passing 4
+regions to calls to update the source term and the boundaries I would loop
+separately over each array in the same region, which is of similar complexity.
+However I'd only have to deal with 3 regions rather than 12 for the intensities
+and I wouldn't need to create another region for the cell values that don't
+depend on angle.
+
+I chose the approach of using 4 arrays. Luckily Lua allows for meta programming,
+ie code that generates other code, so rather than writing 4 variations of sweep
+calls I could write 1 using meta programming. The only thing that changes is the
+direction and which array is being read from/written to. However using meta 
+programming does increase the compile time of the program so it might be 
+worthwhile to experiment with the other approach using 4 regions.
+
+The final data structure I had was a region for cell center values including
+4 arrays of cell center intensities, a region for x face values (with 4
+arrays) and a region for y face values (with 4 arrays). I partitioned the 
+cell center region and the face regions into tiles, and then partitioned the
+face values again into "ghost regions", aliasing a single column or row from
+each tile. I had to create 2 ghost regions for each the x faces and the y
+faces since depending on the angle quadrant either the first row or the last
+row from each tile is needed for the sweep call. Since these ghost regions
+are only read from, there is no problem passing aliased regions to each sweep.
+
+Each quadrant of angles requires a different order of sweep calls - ie each
+one must start in a different corner of the grid. I could either partition the
+regions differently so that I could do the same order of sweep task launches 
+for each quadrant or write 4 different task launches, each starting at a 
+different corner of the grid. I chose the second approach because writing 4
+versions of partition code for the cell centers, faces, and ghost regions
+would have resulted in a lot more code. 
+
+Hopefully this can provide a template for how to partition data in Regent
+in similar structured data scenarios, where the dependencies are static.
+
+
+------------------
+
+Performance
+
+------------------
+
+
+TBD
+
+
+
+

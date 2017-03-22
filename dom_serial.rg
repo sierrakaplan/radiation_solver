@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 4
-local Ny = 4
+local Nx = 100
+local Ny = 100
 
 -- Domain size
 
@@ -207,9 +207,7 @@ do
       for m = limits.lo.x, limits.hi.x + 1 do
         points[{0,i,j}].S = points[{0,i,j}].S + omega*points[{0,i,j}].sigma/(4.0*pi)*points[{m,0,0}].w*points[{m,i,j}].Iiter
       end
-      c.printf("source term %d %d = %lf ", i, j, points[{0,i,j}].S)
     end
-    c.printf("\n")
   end
 
 end
@@ -242,10 +240,8 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].xi > 0 then
         points[{m,0,j}].Ifx = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-        c.printf("Ifx y=%d angle=%d = %lf ", j, m, points[{m,0,j}].Ifx)
       end
     end
-    c.printf("\n")
   end
 
 end
@@ -278,10 +274,8 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].xi < 0 then
         points[{m,Nx,j}].Ifx = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-        c.printf("Ifx y=%d angle=%d = %lf ", j, m, points[{m,Nx,j}].Ifx)
       end
     end
-    c.printf("\n")
   end
 
 end
@@ -314,10 +308,8 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].eta > 0 then
         points[{m,i,0}].Ify = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-        c.printf("Ify y=%d angle=%d = %lf ", i, m, points[{m,i,0}].Ify)
       end
     end
-    c.printf("\n")
   end
 
 end
@@ -350,10 +342,8 @@ do
     for m = limits.lo.x, limits.hi.x + 1 do
       if points[{m,0,0}].eta < 0 then
         points[{m,i,Ny}].Ify = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
-        c.printf("Ify y=%d angle=%d = %lf ", i, m, points[{m,i,Ny}].Ify)
       end
     end
-    c.printf("\n")
   end
 
 end
@@ -428,7 +418,13 @@ do
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{m,i,j}].I = (points[{0,i,j}].S*dx*dy + cmath.fabs(points[{m,0,0}].xi)*dy*points[{m,indx,j}].Ifx/gamma + cmath.fabs(points[{m,0,0}].eta)*dx*points[{m,i,indy}].Ify/gamma)/(points[{0,i,j}].sigma*dx*dy + cmath.fabs(points[{m,0,0}].xi)*dy/gamma + cmath.fabs(points[{m,0,0}].eta)*dx/gamma)
+        points[{m,i,j}].I = (points[{0,i,j}].S*dx*dy 
+          + cmath.fabs(points[{m,0,0}].xi)*dy*points[{m,indx,j}].Ifx/gamma 
+          + cmath.fabs(points[{m,0,0}].eta)*dx*points[{m,i,indy}].Ify/gamma)
+        /(points[{0,i,j}].sigma*dx*dy 
+          + cmath.fabs(points[{m,0,0}].xi)*dy/gamma 
+          + cmath.fabs(points[{m,0,0}].eta)*dx/gamma)
+
 
         -- Compute downwind intensities on cell faces.
 
@@ -612,7 +608,6 @@ task main()
         
     update(points)
     t = t + 1
-    break --todo: delete
 
   end
 

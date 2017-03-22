@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 4
-local Ny = 4
+local Nx = 100
+local Ny = 100
 
 --todo: Read from file in Lua
 
@@ -281,9 +281,9 @@ do
       		for m = 0, N_angles/4 do
         		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+(N_angles/4)*3].w*points[{i,j}].Iiter_4[m]
       		end
-      		c.printf("source term %d %d = %lf ", i, j, points[{i,j}].S)
+      		-- c.printf("source term %d %d = %lf ", i, j, points[{i,j}].S)
     	end
-    	c.printf("\n")
+    	-- c.printf("\n")
   	end
 
 end
@@ -305,32 +305,71 @@ task make_interior_partition(points : region(ispace(int2d), point),
 end
 
 -- x
-task make_interior_partition_x(faces : region(ispace(int2d), x_face),
+task make_interior_partition_x_hi(faces : region(ispace(int2d), x_face),
 							tiles : ispace(int2d),
 							ntiles : int64, nx : int64, ny : int64) 
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
-	    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
-		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
+		var val : int = 1
+		if tile.x == 0 then val = 0 end -- include extra face in first partition
+	    var lo = int2d { x = tile.x * nx / ntiles + val, y = tile.y * ny / ntiles} 
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles, y = (tile.y + 1) * ny / ntiles - 1}
 		var rect = rect2d {lo = lo, hi = hi}
 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
 	end
 	var p = partition(disjoint, faces, coloring, tiles)
 	c.legion_domain_point_coloring_destroy(coloring)
 	return p
+end
 
+task make_interior_partition_x_lo(faces : region(ispace(int2d), x_face),
+							tiles : ispace(int2d),
+							ntiles : int64, nx : int64, ny : int64) 
+	
+	var coloring = c.legion_domain_point_coloring_create()
+	for tile in tiles do
+		var val : int = -1
+		if tile.x == tiles.bounds.hi.x then val = 0 end -- include extra face in last partition
+	    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles} 
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles + val, y = (tile.y + 1) * ny / ntiles - 1}
+		var rect = rect2d {lo = lo, hi = hi}
+		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+	end
+	var p = partition(disjoint, faces, coloring, tiles)
+	c.legion_domain_point_coloring_destroy(coloring)
+	return p
 end
 
 
-task make_interior_partition_y(faces : region(ispace(int2d), y_face),
+task make_interior_partition_y_hi(faces : region(ispace(int2d), y_face),
 							tiles : ispace(int2d),
 							ntiles : int64, nx : int64, ny : int64)
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
+		var val : int = 1
+		if tile.y == 0 then val = 0 end -- include extra face in first partition
+	   	var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles + val}
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles}
+		var rect = rect2d {lo = lo, hi = hi}
+		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+	end
+	var p = partition(disjoint, faces, coloring, tiles)
+	c.legion_domain_point_coloring_destroy(coloring)
+	return p
+end
+
+task make_interior_partition_y_lo(faces : region(ispace(int2d), y_face),
+							tiles : ispace(int2d),
+							ntiles : int64, nx : int64, ny : int64)
+	
+	var coloring = c.legion_domain_point_coloring_create()
+	for tile in tiles do
+		var val : int = -1
+		if tile.y == tiles.bounds.hi.y then val = 0 end -- include extra face in last partition
 	   	var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
-		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
+		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles + val}
 		var rect = rect2d {lo = lo, hi = hi}
 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
 	end
@@ -452,6 +491,8 @@ do
 
   	var limits = faces.bounds
 
+  	-- c.printf("west bound x = %d ", limits.lo.x)
+
  	 -- Temporary variables for the west bound
 
   	var reflect : double = 0.0
@@ -488,28 +529,23 @@ do
   			var angle : int = m
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_1[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_1[m])
   			end
 
   			angle = m + (N_angles/4)
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_2[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_3[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].xi > 0 then
   				faces[{limits.lo.x,j}].Ifx_4[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.lo.x,j}].Ifx_4[m])
   			end
   		end
-  		c.printf("\n")
 
   	end
 end
@@ -561,25 +597,21 @@ do
   			var angle : int = m
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_1[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_1[m])
   			end
 
   			angle = m + (N_angles/4)
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_2[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_3[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].xi < 0 then
   				faces[{limits.hi.x,j}].Ifx_4[m] = value
-  				c.printf("Ifx y=%d angle=%d = %lf ", j, angle, faces[{limits.hi.x,j}].Ifx_4[m])
   			end
   		end
 
@@ -633,28 +665,23 @@ do
   			var angle : int = m
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_1[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_1[m])
   			end
 
   			angle = m + (N_angles/4)
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_2[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_3[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].eta < 0 then
   				faces[{i,limits.hi.y}].Ify_4[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.hi.y}].Ify_4[m])
   			end
   		end
-  		c.printf("\n")
   	end
 end
 
@@ -680,7 +707,6 @@ do
   		-- Calculate reflect
 
   		reflect = 0
-  		--todo: loops exclusive, indexed at 1?
   		for m = 0, N_angles do
   			var face_value : double = 0.0
   			if m < N_angles/4 then
@@ -699,7 +725,6 @@ do
 
 
   		-- Set Ify values using reflect
-  		-- todo: check against original
 
   		for m = 0, N_angles/4 do
   			var value : double = epsw*SB*cmath.pow(Tw,4.0)/pi + reflect
@@ -707,28 +732,23 @@ do
   			var angle : int = m
   			if angle_values[m].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_1[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_1[m])
   			end
 
   			angle = m + (N_angles/4)
   			if angle_values[angle].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_2[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_2[m])
   			end
 
   			angle = m + (N_angles/4) * 2
   			if angle_values[angle].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_3[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_3[m])
   			end
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].eta > 0 then
   				faces[{i,limits.lo.y}].Ify_4[m] = value
-  				c.printf("Ify x=%d angle=%d = %lf ", i, angle, faces[{i,limits.lo.y}].Ify_4[m])
   			end
   		end
-  		c.printf("\n")
 
   	end
 end
@@ -754,11 +774,11 @@ do
 
   var dindx  : int64 = 1
   var startx : int64 = limits.lo.x
-  var endx   : int64 = limits.hi.x
+  var endx   : int64 = limits.hi.x + 1
 
   var dindy  : int64 = 1
   var starty : int64 = limits.lo.y
-  var endy   : int64 = limits.hi.y
+  var endy   : int64 = limits.hi.y + 1
 
   
   -- Outer loop over all angles.
@@ -771,40 +791,44 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      	--todo: update for other quadrants (in negative direction, indx is i+1?)
-      	indx = i
-        indy = j
+      	-- indx and indy are the upwind indices
+      	indx = i - min(dindx,0)
+        indy = j - min(dindy,0)
+
+        var upwind_x_value : double = 0.0
+        if indx < x_faces.bounds.lo.x then
+        	var ghost_x_limits = ghost_x_faces.bounds
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_1[m]
+        else
+        	upwind_x_value = x_faces[{indx, j}].Ifx_1[m]
+       	end
+
+       	var upwind_y_value : double = 0.0
+       	if indy < y_faces.bounds.lo.y then
+       		var ghost_y_limits = ghost_y_faces.bounds
+        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_1[m]
+       	else
+       		upwind_y_value = y_faces[{i,indy}].Ify_1[m]
+       	end
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{i,j}].I_1[angle] = (points[{i,j}].S * dx * dy 
-        	+ cmath.fabs(angle_values[m].xi) * dy * x_faces[{indx,j}].Ifx_1[angle]/gamma 
-        	+ cmath.fabs(angle_values[m].eta) * dx * y_faces[{i,indy}].Ify_1[angle]/gamma)
-        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[m].xi) * dy/gamma + cmath.fabs(angle_values[m].eta) * dx/gamma)
+        points[{i,j}].I_1[m] = (points[{i,j}].S * dx * dy 
+        	+ cmath.fabs(angle_values[angle].xi) * dy * upwind_x_value/gamma 
+        	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
+        	/(points[{i,j}].sigma * dx * dy 
+        	+ cmath.fabs(angle_values[angle].xi) * dy/gamma 
+        	+ cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        -- Compute intensities on cell faces from upwind.
-        -- Use ghost regions if needed
-        var upwind_x_value : double = 0.0
-        if indx-dindx < x_faces.bounds.lo.x then
-        	var ghost_x_limits = ghost_x_faces.bounds
-        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_1[m]
-        else 
-        	upwind_x_value = x_faces[{indx-dindx,j}].Ifx_1[m]
-        end
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf ", i, j, angle, points[{i,j}].I_1[m])
 
-        var upwind_y_value : double = 0.0
-        if indy-dindy < y_faces.bounds.lo.y then
-        	var ghost_y_limits = ghost_y_faces.bounds
-        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_1[m]
-        else 
-        	upwind_y_value = y_faces[{i,indy-dindy}].Ify_1[m]
-        end
+        -- Compute intensities on downwind faces
 
-
-        x_faces[{indx, j}].Ifx_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
-        y_faces[{i, indy}].Ify_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
+        x_faces[{indx+dindx, j}].Ifx_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+        y_faces[{i, indy+dindy}].Ify_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
 
       end
+      -- c.printf("\n")
     end
   end
 end
@@ -828,14 +852,13 @@ do
   var indx   : int64 = 0
   var indy   : int64 = 0
 
-  --todo: +1 for limits.hi?
   var dindx  : int64 = 1
   var startx : int64 = limits.lo.x
-  var endx   : int64 = limits.hi.x
+  var endx   : int64 = limits.hi.x + 1
 
   var dindy  : int64 = -1
   var starty : int64 = limits.hi.y
-  var endy   : int64 = limits.lo.y
+  var endy   : int64 = limits.lo.y - 1
 
   
   -- Outer loop over all angles.
@@ -848,40 +871,39 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      	--todo: update for other quadrants (in negative direction, indx is i+1?)
-      	indx = i
-        indy = j
+      	indx = i - min(dindx,0)
+        indy = j - min(dindy,0)
+
+        var upwind_x_value : double = 0.0
+        if indx < x_faces.bounds.lo.x then
+        	var ghost_x_limits = ghost_x_faces.bounds
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_2[m]
+        else
+        	upwind_x_value = x_faces[{indx,j}].Ifx_2[m]
+       	end
+
+       	var upwind_y_value : double = 0.0
+       	if indy > y_faces.bounds.hi.y then
+       		var ghost_y_limits = ghost_y_faces.bounds
+        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y}].Ify_2[m]
+       	else
+       		upwind_y_value = y_faces[{i,indy}].Ify_2[m]
+       	end
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{i,j}].I_2[angle] = (points[{i,j}].S * dx * dy 
-        	+ cmath.fabs(angle_values[m].xi) * dy * x_faces[{indx,j}].Ifx_2[angle]/gamma 
-        	+ cmath.fabs(angle_values[m].eta) * dx * y_faces[{i,indy}].Ify_2[angle]/gamma)
-        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[m].xi) * dy/gamma + cmath.fabs(angle_values[m].eta) * dx/gamma)
+        points[{i,j}].I_2[m] = (points[{i,j}].S * dx * dy 
+        	+ cmath.fabs(angle_values[angle].xi) * dy * upwind_x_value/gamma 
+        	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
+        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[angle].xi) * dy/gamma + cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        -- Compute intensities on cell faces from upwind.
-        -- Use ghost regions if needed
-        var upwind_x_value : double = 0.0
-        if indx-dindx < x_faces.bounds.lo.x then
-        	var ghost_x_limits = ghost_x_faces.bounds
-        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_2[m]
-        else 
-        	upwind_x_value = x_faces[{indx-dindx,j}].Ifx_2[m]
-        end
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf ", i, j, angle, points[{i,j}].I_2[m])
 
-        var upwind_y_value : double = 0.0
-        if indy-dindy > y_faces.bounds.hi.y then
-        	var ghost_y_limits = ghost_y_faces.bounds
-        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y}].Ify_2[m]
-        else 
-        	upwind_y_value = y_faces[{i,indy-dindy}].Ify_2[m]
-        end
-
-
-        x_faces[{indx, j}].Ifx_2[m] = (points[{i,j}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
-        y_faces[{i, indy}].Ify_2[m] = (points[{i,j}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
+        x_faces[{indx+dindx, j}].Ifx_2[m] = (points[{i,j}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
+        y_faces[{i, indy+dindy}].Ify_2[m] = (points[{i,j}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
 
       end
+      -- c.printf("\n")
     end
   end
 end
@@ -907,11 +929,11 @@ do
 
   var dindx  : int64 = -1
   var startx : int64 = limits.hi.x
-  var endx   : int64 = limits.lo.x
+  var endx   : int64 = limits.lo.x - 1
 
   var dindy  : int64 = 1
   var starty : int64 = limits.lo.y
-  var endy   : int64 = limits.hi.y
+  var endy   : int64 = limits.hi.y + 1
 
   
   -- Outer loop over all angles.
@@ -924,40 +946,40 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      	--todo: update for other quadrants (in negative direction, indx is i+1?)
-      	indx = i
-        indy = j
+      	indx = i - min(dindx,0)
+        indy = j - min(dindy,0)
+
+        var upwind_x_value : double = 0.0
+        if indx > x_faces.bounds.hi.x then
+        	var ghost_x_limits = ghost_x_faces.bounds
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_3[m]
+        else
+        	upwind_x_value = x_faces[{indx,j}].Ifx_3[m]
+       	end
+
+       	var upwind_y_value : double = 0.0
+       	if indy < y_faces.bounds.lo.y then
+       		var ghost_y_limits = ghost_y_faces.bounds
+        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_3[m]
+       	else
+       		upwind_y_value = y_faces[{i,indy}].Ify_3[m]
+       	end
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{i,j}].I_3[angle] = (points[{i,j}].S * dx * dy 
-        	+ cmath.fabs(angle_values[m].xi) * dy * x_faces[{indx,j}].Ifx_3[angle]/gamma 
-        	+ cmath.fabs(angle_values[m].eta) * dx * y_faces[{i,indy}].Ify_3[angle]/gamma)
-        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[m].xi) * dy/gamma + cmath.fabs(angle_values[m].eta) * dx/gamma)
+        points[{i,j}].I_3[m] = (points[{i,j}].S * dx * dy 
+        	+ cmath.fabs(angle_values[angle].xi) * dy * upwind_x_value/gamma 
+        	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
+        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[angle].xi) * dy/gamma + cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        -- Compute intensities on cell faces from upwind.
-        -- Use ghost regions if needed
-        var upwind_x_value : double = 0.0
-        if indx-dindx > x_faces.bounds.hi.x then
-        	var ghost_x_limits = ghost_x_faces.bounds
-        	upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j}].Ifx_3[m]
-        else 
-        	upwind_x_value = x_faces[{indx-dindx,j}].Ifx_3[m]
-        end
-
-        var upwind_y_value : double = 0.0
-        if indy-dindy < y_faces.bounds.lo.y then
-        	var ghost_y_limits = ghost_y_faces.bounds
-        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_3[m]
-        else 
-        	upwind_y_value = y_faces[{i,indy-dindy}].Ify_3[m]
-        end
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf ", i, j, angle, points[{i,j}].I_3[m])
 
 
-        x_faces[{indx, j}].Ifx_3[m] = (points[{i,j}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
-        y_faces[{i, indy}].Ify_3[m] = (points[{i,j}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
+        x_faces[{indx+dindx, j}].Ifx_3[m] = (points[{i,j}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
+        y_faces[{i, indy+dindy}].Ify_3[m] = (points[{i,j}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
 
       end
+      -- c.printf("\n")
     end
   end
 end
@@ -983,11 +1005,11 @@ do
 
   var dindx  : int64 = -1
   var startx : int64 = limits.hi.x
-  var endx   : int64 = limits.lo.x
+  var endx   : int64 = limits.lo.x - 1
 
   var dindy  : int64 = -1
   var starty : int64 = limits.hi.y
-  var endy   : int64 = limits.lo.y
+  var endy   : int64 = limits.lo.y - 1
 
   
   -- Outer loop over all angles.
@@ -1000,40 +1022,39 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      	--todo: update for other quadrants (in negative direction, indx is i+1?)
-      	indx = i
-        indy = j
+      	indx = i - min(dindx,0)
+        indy = j - min(dindy,0)
+
+        var upwind_x_value : double = 0.0
+        if indx > x_faces.bounds.hi.x then
+        	var ghost_x_limits = ghost_x_faces.bounds
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_4[m]
+        else
+        	upwind_x_value = x_faces[{indx,j}].Ifx_4[m]
+       	end
+
+       	var upwind_y_value : double = 0.0
+       	if indy > y_faces.bounds.hi.y then
+       		var ghost_y_limits = ghost_y_faces.bounds
+        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_4[m]
+       	else
+       		upwind_y_value = y_faces[{i,indy}].Ify_4[m]
+       	end
 
         -- Integrate to compute cell-centered value of I.
 
-        points[{i,j}].I_4[angle] = (points[{i,j}].S * dx * dy 
-        	+ cmath.fabs(angle_values[m].xi) * dy * x_faces[{indx,j}].Ifx_4[angle]/gamma 
-        	+ cmath.fabs(angle_values[m].eta) * dx * y_faces[{i,indy}].Ify_4[angle]/gamma)
-        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[m].xi) * dy/gamma + cmath.fabs(angle_values[m].eta) * dx/gamma)
+        points[{i,j}].I_4[m] = (points[{i,j}].S * dx * dy 
+        	+ cmath.fabs(angle_values[angle].xi) * dy * upwind_x_value/gamma 
+        	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
+        	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[angle].xi) * dy/gamma + cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        -- Compute intensities on cell faces from upwind.
-        -- Use ghost regions if needed
-        var upwind_x_value : double = 0.0
-        if indx-dindx > x_faces.bounds.hi.x then
-        	var ghost_x_limits = ghost_x_faces.bounds
-        	upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j}].Ifx_4[m]
-        else 
-        	upwind_x_value = x_faces[{indx-dindx,j}].Ifx_4[m]
-        end
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf ", i, j, angle, points[{i,j}].I_4[m])
 
-        var upwind_y_value : double = 0.0
-        if indy-dindy > y_faces.bounds.hi.y then
-        	var ghost_y_limits = ghost_y_faces.bounds
-        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y}].Ify_4[m]
-        else 
-        	upwind_y_value = y_faces[{i,indy-dindy}].Ify_4[m]
-        end
-
-
-        x_faces[{indx, j}].Ifx_4[m] = (points[{i,j}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
-        y_faces[{i, indy}].Ify_4[m] = (points[{i,j}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
+        x_faces[{indx+dindx, j}].Ifx_4[m] = (points[{i,j}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
+        y_faces[{i, indy+dindy}].Ify_4[m] = (points[{i,j}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
 
       end
+      -- c.printf("\n")
     end
   end
 end
@@ -1114,6 +1135,61 @@ do
   	end
 end
 
+task create_tecplot_file(points : region(ispace(int2d), point))
+where
+	reads (points.G),
+	reads writes (points.x, points.y)
+
+do
+
+	-- Compute the x- and y-coordinates for vizualization
+	var limits = points.bounds
+  	for i = limits.lo.x, limits.hi.x+1 do
+    	for j = limits.lo.y, limits.hi.y+1 do
+        	points[{i,j}].x = (dx * [double](i))
+        	points[{i,j}].y = (dy * [double](j))
+    	end
+  	end
+
+ 	-- Tecplot ASCII format (cell-centered)
+
+  	var f = c.fopen("radiation_solver/intensity.dat", "w")
+
+  	-- Write header
+
+  	c.fprintf(f,'\n\n')
+  	c.fprintf(f,'TITLE = "DOM Intensity"\n')
+  	c.fprintf(f,'VARIABLES = "X", "Y", "Intensity"\n')
+  	c.fprintf(f,'ZONE I= %d J= %d DATAPACKING=BLOCK VARLOCATION=([3]=CELLCENTERED)\n', Nx+1,Ny+1)
+
+  	-- Write the x & y coords, then cell-centered intensity.
+
+  	for i = limits.lo.x, limits.hi.x+1 do
+    	for j = limits.lo.y, limits.hi.y+1 do
+      		c.fprintf(f,' %.15e ', points[{i,j}].x)
+    	end
+    	c.fprintf(f,'\n')
+ 	end
+
+  	for i = limits.lo.x, limits.hi.x+1 do
+    	for j = limits.lo.y, limits.hi.y+1 do
+      		c.fprintf(f,' %.15e ', points[{i,j}].y)
+    	end
+    	c.fprintf(f,'\n')
+  	end
+
+  	for i = limits.lo.x, limits.hi.x+1 do
+    	for j = limits.lo.y, limits.hi.y+1 do
+      		c.fprintf(f,' %.15e ', points[{i,j}].G)
+    	end
+    	c.fprintf(f,'\n')
+  	end
+
+  	-- Close the Tecplot file.
+
+  	c.fclose(f)
+end
+
 task main()
 
 	-- Some local variables needed for the iterative algorithm.
@@ -1122,7 +1198,7 @@ task main()
 	var res : double = 1.0
 	var N   : int64[1]
 
-	var nt : int64 = 4 -- # tiles per direction
+	var nt : int64 = 2 -- # tiles per direction
 
 	var filename : rawstring = quad_file
 
@@ -1167,17 +1243,21 @@ task main()
 	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny)
 
 	-- Partition faces
-	var private_x_faces = make_interior_partition_x(x_faces, tiles, nt, Nx+1, Ny)
+	var private_x_faces_hi = make_interior_partition_x_hi(x_faces, tiles, nt, Nx, Ny)
 
-	var private_y_faces = make_interior_partition_y(y_faces, tiles, nt, Nx, Ny+1)
+	var private_y_faces_hi = make_interior_partition_y_hi(y_faces, tiles, nt, Nx, Ny)
 
-	var ghost_x_faces_lo = make_ghost_partition_x_lo(x_faces, tiles, nt, Nx+1, Ny)
+	var private_x_faces_lo = make_interior_partition_x_lo(x_faces, tiles, nt, Nx, Ny)
 
-	var ghost_x_faces_hi = make_ghost_partition_x_hi(x_faces, tiles, nt, Nx+1, Ny)
+	var private_y_faces_lo = make_interior_partition_y_lo(y_faces, tiles, nt, Nx, Ny)
 
-	var ghost_y_faces_lo = make_ghost_partition_y_lo(y_faces, tiles, nt, Nx, Ny+1)
+	var ghost_x_faces_lo = make_ghost_partition_x_lo(x_faces, tiles, nt, Nx, Ny)
 
-	var ghost_y_faces_hi = make_ghost_partition_y_hi(y_faces, tiles, nt, Nx, Ny+1)
+	var ghost_x_faces_hi = make_ghost_partition_x_hi(x_faces, tiles, nt, Nx, Ny)
+
+	var ghost_y_faces_lo = make_ghost_partition_y_lo(y_faces, tiles, nt, Nx, Ny)
+
+	var ghost_y_faces_hi = make_ghost_partition_y_hi(y_faces, tiles, nt, Nx, Ny)
 
 
 	while (res > tol) do
@@ -1192,14 +1272,14 @@ task main()
 	
 	  	-- Update x faces (west bound/east bound)
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		west_bound(private_x_faces[{tiles.bounds.lo.x,j}], angle_values)
-	  		east_bound(private_x_faces[{tiles.bounds.hi.x,j}], angle_values)
+	  		west_bound(private_x_faces_hi[{tiles.bounds.lo.x,j}], angle_values)
+	  		east_bound(private_x_faces_hi[{tiles.bounds.hi.x,j}], angle_values) -- doesn't matter which partition used
 	  	end
 	  	
 	  	-- Update y faces (north bound/south bound)
 	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  		north_bound(private_y_faces[{i,tiles.bounds.lo.y}], angle_values)
-	  		south_bound(private_y_faces[{i,tiles.bounds.hi.y}], angle_values)
+	  		north_bound(private_y_faces_hi[{i,tiles.bounds.hi.y}], angle_values)
+	  		south_bound(private_y_faces_hi[{i,tiles.bounds.lo.y}], angle_values)
 	  	end
 
 	  	-- Perform the sweep for computing new intensities.
@@ -1208,7 +1288,7 @@ task main()
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
-				sweep_1(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+				sweep_1(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_hi[{i,j}], 
 					ghost_x_faces_hi[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
 			end
 		end 
@@ -1217,7 +1297,7 @@ task main()
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_2(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+				sweep_2(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_lo[{i,j}], 
 					ghost_x_faces_hi[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
 			end
 		end
@@ -1226,7 +1306,7 @@ task main()
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
-				sweep_3(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+				sweep_3(private_cells[{i,j}], private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], 
 					ghost_x_faces_lo[{i,j}], ghost_y_faces_hi[{i,j}], angle_values)
 			end
 		end
@@ -1235,7 +1315,7 @@ task main()
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_4(private_cells[{i,j}], private_x_faces[{i,j}], private_y_faces[{i,j}], 
+				sweep_4(private_cells[{i,j}], private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], 
 					ghost_x_faces_lo[{i,j}], ghost_y_faces_lo[{i,j}], angle_values)
 			end
 		end
@@ -1263,14 +1343,16 @@ task main()
     	
     
 		t = t + 1
-		break --todo: delete
-
 	end
 
-  	-- Write a Tecplot file to vizualize the intensity.
+  	-- Reduce intensity
   	for color in tiles do
         reduce_intensity(private_cells[color], angle_values)
     end
+
+    -- Write a Tecplot file to vizualize the intensity.
+    --todo: do by cell?
+    create_tecplot_file(points)
 
 end
 
