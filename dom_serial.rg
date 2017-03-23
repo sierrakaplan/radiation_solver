@@ -426,6 +426,11 @@ do
           + cmath.fabs(points[{m,0,0}].eta)*dx/gamma)
 
 
+        -- if dindy > 0 and dindx > 0 then
+        --   c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, m, points[{m,i,j}].I)
+        -- end
+
+
         -- Compute downwind intensities on cell faces.
 
         points[{m,indx+dindx,j}].Ifx = (points[{m,i,j}].I - (1-gamma)*points[{m,indx,j}].Ifx)/gamma
@@ -492,6 +497,7 @@ do
     for j = limits.lo.z, limits.hi.z do
       for m = limits.lo.x, limits.hi.x + 1 do
         points[{0,i,j}].G = points[{0,i,j}].G + points[{m,i,j}].w*points[{m,i,j}].I
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, m, points[{m,i,j}].I)
       end
     end
   end
@@ -514,19 +520,19 @@ do
   c.fprintf(f,'\n\n')
   c.fprintf(f,'TITLE = "DOM Intensity"\n')
   c.fprintf(f,'VARIABLES = "X", "Y", "Intensity"\n')
-  c.fprintf(f,'ZONE I= %d J= %d DATAPACKING=BLOCK VARLOCATION=([3]=CELLCENTERED)\n', Nx+1,Ny+1)
+  c.fprintf(f,'ZONE I= %d J= %d DATAPACKING=BLOCK VARLOCATION=([3]=CELLCENTERED)\n', Nx,Ny)
 
   -- Write the x & y coords, then cell-centered intensity.
 
-  for i = limits.lo.y, limits.hi.y+1 do
-    for j = limits.lo.z, limits.hi.z+1 do
+  for i = limits.lo.y, limits.hi.y do
+    for j = limits.lo.z, limits.hi.z do
       c.fprintf(f,' %.15e ', points[{0,i,j}].x)
     end
     c.fprintf(f,'\n')
   end
 
-  for i = limits.lo.y, limits.hi.y+1 do
-    for j = limits.lo.z, limits.hi.z+1 do
+  for i = limits.lo.y, limits.hi.y do
+    for j = limits.lo.z, limits.hi.z do
       c.fprintf(f,' %.15e ', points[{0,i,j}].y)
     end
     c.fprintf(f,'\n')
