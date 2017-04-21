@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 100
-local Ny = 100
+local Nx = 4
+local Ny = 4
 
 -- Domain size
 
@@ -426,8 +426,8 @@ do
           + cmath.fabs(points[{m,0,0}].eta)*dx/gamma)
 
 
-        -- if dindy > 0 and dindx > 0 then
-        --   c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, m, points[{m,i,j}].I)
+        -- if dindy > 0 and dindx < 0 then
+          c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, m, points[{m,i,j}].I)
         -- end
 
 
@@ -614,6 +614,8 @@ task main()
         
     update(points)
     t = t + 1
+
+    break
 
   end
 
