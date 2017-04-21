@@ -323,7 +323,7 @@ task make_interior_partition_x_hi(faces : region(ispace(int2d), x_face),
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
-		
+
 		var val : int = -1
 		if tile.x == tiles.bounds.hi.x-1 then val = 0 end -- include extra face in last partition
 	    var lo = int2d { x = tile.x * (nx-1) / ntiles, y = tile.y * ny / ntiles} 
@@ -428,107 +428,6 @@ task make_interior_partition_y_lo(faces : region(ispace(int2d), y_face),
 	return p
 end
 
-
--- The largest column in the x direction (needed when sweeping +x)
--- tile 0 should have empty region
--- tile 1 should have largest column tile 0
--- tile 9 should have largest column tile 8
--- task make_ghost_partition_x_hi (faces : region(ispace(int2d), x_face),
--- 							tiles : ispace(int2d),
--- 							ntiles : int64, nx : int64, ny : int64) 
--- 	var coloring = c.legion_domain_point_coloring_create()
-
--- 	for tile in tiles do
--- 		var lo = int2d { x = tile.x * nx / ntiles - 1, y = tile.y * ny / ntiles}
--- 		var hi = int2d { x = tile.x * nx / ntiles - 1, y = (tile.y + 1) * ny / ntiles - 1}
--- 		-- Create an empty partition
--- 		if lo.x < 0 then
--- 			lo.x = 1
--- 			hi.x = 0
--- 		end
--- 		var rect = rect2d {lo = lo, hi = hi}
--- 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
--- 	end
-
--- 	var p = partition(disjoint, faces, coloring, tiles)
--- 	c.legion_domain_point_coloring_destroy(coloring)
--- 	return p
-
--- end
-
--- -- The smallest column in the x direction (needed when sweeping -x)
--- -- match tile 9 with smallest column from tile 10
--- -- if tile 10 is boundary, give it empty region
--- -- tile 0 should have smallest column tile 1
-
--- task make_ghost_partition_x_lo (faces : region(ispace(int2d), x_face),
--- 							tiles : ispace(int2d),
--- 							ntiles : int64, nx : int64, ny : int64) 
--- 	var coloring = c.legion_domain_point_coloring_create()
-
--- 	for tile in tiles do
--- 		var lo = int2d { x = (tile.x+1) * nx / ntiles, y = tile.y * ny / ntiles}
--- 		var hi = int2d { x = (tile.x+1) * nx / ntiles, y = (tile.y + 1) * ny / ntiles - 1}
--- 		-- Create an empty partition
--- 		if hi.x >= nx then
--- 			lo.x = 1
--- 			hi.x = 0
--- 		end
--- 		var rect = rect2d {lo = lo, hi = hi}
--- 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
--- 	end
-
--- 	var p = partition(disjoint, faces, coloring, tiles)
--- 	c.legion_domain_point_coloring_destroy(coloring)
--- 	return p
-
--- end
-
--- -- The largest row in the y direction (needed when sweeping +y)
--- task make_ghost_partition_y_hi(faces : region(ispace(int2d), y_face),
--- 							tiles : ispace(int2d),
--- 							ntiles : int64, nx : int64, ny : int64) 
--- 	var coloring = c.legion_domain_point_coloring_create()
-
--- 	for tile in tiles do
--- 		var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles - 1}
--- 		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = tile.y * ny / ntiles - 1}
--- 		-- Create an empty partition in boundary case
--- 		if lo.y < 0 then
--- 			lo.y = 1
--- 			hi.y = 0
--- 		end
--- 		var rect = rect2d {lo = lo, hi = hi}
--- 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
--- 	end
-
--- 	var p = partition(disjoint, faces, coloring, tiles)
--- 	c.legion_domain_point_coloring_destroy(coloring)
--- 	return p
--- end
-
--- -- The smallest row in the y direction (needed when sweeping -y)
--- task make_ghost_partition_y_lo(faces : region(ispace(int2d), y_face),
--- 							tiles : ispace(int2d),
--- 							ntiles : int64, nx : int64, ny : int64) 
--- 	var coloring = c.legion_domain_point_coloring_create()
-
--- 	for tile in tiles do
--- 		var lo = int2d { x = tile.x * nx / ntiles, y = (tile.y+1) * ny / ntiles}
--- 		var hi = int2d { x = (tile.x + 1) * nx / ntiles - 1, y = (tile.y+1) * ny / ntiles}
--- 		-- Create an empty partition in boundary case
--- 		if hi.y >= ny then
--- 			lo.y = 1
--- 			hi.y = 0
--- 		end
--- 		var rect = rect2d {lo = lo, hi = hi}
--- 		c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
--- 	end
-
--- 	var p = partition(disjoint, faces, coloring, tiles)
--- 	c.legion_domain_point_coloring_destroy(coloring)
--- 	return p
--- end
 
 task west_bound(faces : region(ispace(int2d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
@@ -839,7 +738,6 @@ do
   for m = 0, N_angles/4 do
 
   	var angle : int64 = m
-  	-- c.printf("xi = %lf and eta= %lf \n", angle_values[angle].xi, angle_values[angle].eta)
 
     -- Use our direction and increments for the sweep.
 
@@ -875,7 +773,7 @@ do
         	+ cmath.fabs(angle_values[angle].xi) * dy/gamma 
         	+ cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        -- c.printf("x=%d,y=%d,angle=%d upwindx=%lf upwindy=%lf I = %lf \n", i, j, upwind_x_value, upwind_y_value, angle, points[{i,j}].I_1[m])
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_1[m])
 
         -- Compute intensities on downwind faces
 
@@ -883,7 +781,6 @@ do
         y_faces[{i, indy+dindy}].Ify_1[m] = (points[{i,j}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
 
       end
-      -- c.printf("\n")
     end
   end
 end
@@ -914,16 +811,11 @@ do
   var dindy  : int64 = -1
   var starty : int64 = limits.hi.y
   var endy   : int64 = limits.lo.y - 1
-
-
-  c.printf("y bounds x=%d-%d y=%d-%d ghost x=%d-%d y=%d-%d \n", y_faces.bounds.lo.x, y_faces.bounds.hi.x, y_faces.bounds.lo.y, y_faces.bounds.hi.y, ghost_y_faces.bounds.lo.x, ghost_y_faces.bounds.hi.x, ghost_y_faces.bounds.lo.y, ghost_y_faces.bounds.hi.y)
   
   -- Outer loop over all angles.
   for m = 0, N_angles/4 do
 
   	var angle : int64 = m + N_angles/4
-
-  	-- c.printf("xi = %lf and eta= %lf \n", angle_values[angle].xi, angle_values[angle].eta)
 
     -- Use our direction and increments for the sweep.
 
@@ -937,20 +829,16 @@ do
         if indx < x_faces.bounds.lo.x then
         	var ghost_x_limits = ghost_x_faces.bounds
         	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_2[m]
-        	c.printf("x=%d,y=%d,angle=%d upwind x face ghost = %lf \n", ghost_x_limits.hi.x, j, angle, upwind_x_value)
         else
         	upwind_x_value = x_faces[{indx,j}].Ifx_2[m]
-        	c.printf("x=%d,y=%d,angle=%d upwind x face = %lf \n", indx, j, angle, upwind_x_value)
        	end
 
        	var upwind_y_value : double = 0.0
        	if indy > y_faces.bounds.hi.y then
        		var ghost_y_limits = ghost_y_faces.bounds
         	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y}].Ify_2[m]
-        	c.printf("x=%d,y=%d,angle=%d upwind y face ghost = %lf \n", i, ghost_y_limits.lo.y, angle, upwind_y_value)
        	else
        		upwind_y_value = y_faces[{i,indy}].Ify_2[m]
-       		c.printf("x=%d,y=%d,angle=%d upwind y face = %lf \n", i, indy, angle, upwind_y_value)
        	end
 
         -- Integrate to compute cell-centered value of I.
@@ -960,16 +848,12 @@ do
         	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
         	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[angle].xi) * dy/gamma + cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        c.printf("x=%d,y=%d,angle=%d upwindx=%lf upwindy=%lf I = %lf \n", i, j, upwind_x_value, upwind_y_value, angle, points[{i,j}].I_2[m])
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_2[m])
 
         x_faces[{indx+dindx, j}].Ifx_2[m] = (points[{i,j}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
         y_faces[{i, indy+dindy}].Ify_2[m] = (points[{i,j}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
 
-        -- c.printf("x=%d,y=%d,angle=%d downwind x face = %lf \n", indx+dindx, j, angle, x_faces[{indx+dindx, j}].Ifx_2[m])
-        -- c.printf("x=%d,y=%d,angle=%d downwind y face = %lf \n", i, indy+dindy, angle, y_faces[{i, indy+dindy}].Ify_2[m])
-
       end
-      -- c.printf("\n")
     end
   end
 end
@@ -1007,8 +891,6 @@ do
 
   	var angle : int64 = m + (N_angles/4)*2
 
-  	-- c.printf("xi = %lf and eta= %lf \n", angle_values[angle].xi, angle_values[angle].eta)
-
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
@@ -1020,7 +902,7 @@ do
         var upwind_x_value : double = 0.0
         if indx > x_faces.bounds.hi.x then
         	var ghost_x_limits = ghost_x_faces.bounds
-        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_3[m]
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j}].Ifx_3[m]
         else
         	upwind_x_value = x_faces[{indx,j}].Ifx_3[m]
        	end
@@ -1040,7 +922,7 @@ do
         	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
         	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[angle].xi) * dy/gamma + cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        -- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_3[m])
+        c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_3[m])
 
 
         x_faces[{indx+dindx, j}].Ifx_3[m] = (points[{i,j}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
@@ -1064,6 +946,8 @@ where
   reads writes(points.I_4, x_faces.Ifx_4, y_faces.Ify_4)
 do
 
+	-- c.printf("x face bounds x=%d-%d y=%d-%d", x_faces.bounds.lo.x, x_faces.bounds.hi.x, x_faces.bounds.lo.y, x_faces.bounds.hi.y)
+	-- c.printf("y face bounds x=%d-%d y=%d-%d", y_faces.bounds.lo.x, y_faces.bounds.hi.x, y_faces.bounds.lo.y, y_faces.bounds.hi.y)
   -- Get array bounds and some temporary index variables for sweeping
 
   var limits = points.bounds
@@ -1085,8 +969,6 @@ do
 
   	var angle : int64 = m + (N_angles/4) *3
 
-  	-- c.printf("xi = %lf and eta= %lf \n", angle_values[angle].xi, angle_values[angle].eta)
-
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
@@ -1098,7 +980,7 @@ do
         var upwind_x_value : double = 0.0
         if indx > x_faces.bounds.hi.x then
         	var ghost_x_limits = ghost_x_faces.bounds
-        	upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j}].Ifx_4[m]
+        	upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j}].Ifx_4[m]
         	-- c.printf("x=%d,y=%d,angle=%d upwind x face ghost = %lf bounds = %d \n", indx, j, angle, upwind_x_value, x_faces.bounds.hi.x)
         else
         	upwind_x_value = x_faces[{indx,j}].Ifx_4[m]
@@ -1108,7 +990,7 @@ do
        	var upwind_y_value : double = 0.0
        	if indy > y_faces.bounds.hi.y then
        		var ghost_y_limits = ghost_y_faces.bounds
-        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y}].Ify_4[m]
+        	upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y}].Ify_4[m]
         	-- c.printf("x=%d,y=%d,angle=%d upwind y face ghost = %lf \n", i, indy, angle, upwind_y_value)
        	else
        		upwind_y_value = y_faces[{i,indy}].Ify_4[m]
@@ -1126,9 +1008,6 @@ do
 
         x_faces[{indx+dindx, j}].Ifx_4[m] = (points[{i,j}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
         y_faces[{i, indy+dindy}].Ify_4[m] = (points[{i,j}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
-
-        -- c.printf("x=%d,y=%d,angle=%d downwind x face = %lf \n", indx+dindx, j, angle, x_faces[{indx+dindx, j}].Ifx_4[m])
-        -- c.printf("x=%d,y=%d,angle=%d downwind y face = %lf \n", i, indy+dindy, angle, y_faces[{i, indy+dindy}].Ify_4[m])
 
       end
     end
@@ -1200,16 +1079,12 @@ do
       		for m = 0, N_angles/4 do
       			var angle : int = m
         		points[{i,j}].G = points[{i,j}].G + angle_values[angle].w*points[{i,j}].I_1[m]
-        		-- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_1[m])
         		angle = m + N_angles/4
         		points[{i,j}].G = points[{i,j}].G + angle_values[angle].w*points[{i,j}].I_2[m]
-        		-- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_2[m])
         		angle = m + (N_angles/4)*2
         		points[{i,j}].G = points[{i,j}].G + angle_values[angle].w*points[{i,j}].I_3[m]
-        		-- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_3[m])
         		angle = m + (N_angles/4)*3
         		points[{i,j}].G = points[{i,j}].G + angle_values[angle].w*points[{i,j}].I_4[m]        		
-        		-- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_4[m])
       		end
     	end
   	end
@@ -1282,10 +1157,6 @@ task main()
 
 	var filename : rawstring = quad_file
 
-	-- Check the file containing the angle_values
-	-- todo: using constant number of angles
-
-
 	-- Create a region from our grid index space (angles + 2D grid in space)
 	-- and our cell field space defined above.
 
@@ -1324,8 +1195,9 @@ task main()
 	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny)
 
 	-- Extra tile required for ghost
-	var x_faces_tiles = ispace(int2d, {x = nt+1, y = nt})
-	var y_faces_tiles = ispace(int2d, {x = nt, y = nt+1})
+	var nt_face : int64 = nt+1 -- # tiles per direction
+	var x_faces_tiles = ispace(int2d, {x = nt_face, y = nt})
+	var y_faces_tiles = ispace(int2d, {x = nt, y = nt_face})
 
 	-- Partition faces
 	var private_x_faces_hi = make_interior_partition_x_hi(x_faces, x_faces_tiles, nt, Nx+1, Ny)
@@ -1336,110 +1208,102 @@ task main()
 
 	var private_y_faces_lo = make_interior_partition_y_lo(y_faces, y_faces_tiles, nt, Nx, Ny+1)
 
-	-- var ghost_x_faces_lo = make_ghost_partition_x_lo(x_faces, tiles, nt, Nx, Ny)
 
-	-- var ghost_x_faces_hi = make_ghost_partition_x_hi(x_faces, tiles, nt, Nx, Ny)
-
-	-- var ghost_y_faces_lo = make_ghost_partition_y_lo(y_faces, tiles, nt, Nx, Ny)
-
-	-- var ghost_y_faces_hi = make_ghost_partition_y_hi(y_faces, tiles, nt, Nx, Ny)
-
-
-	-- while (res > tol) do
+	while (res > tol) do
     
-	--     -- Update the source term (in this problem, isotropic).
+	    -- Update the source term (in this problem, isotropic).
 
-	--     for color in tiles do
-	--    		source_term(private_cells[color], angle_values)
-	--    	end
+	    for color in tiles do
+	   		source_term(private_cells[color], angle_values)
+	   	end
 
-	--    	-- Update the grid boundary intensities.
+	   	-- Update the grid boundary intensities.
 	
-	--   	-- Update x faces (west bound/east bound)
-	--   	for j = [int](faces_tiles.bounds.lo.y), [int](faces_tiles.bounds.hi.y) + 1 do
-	--   		west_bound(private_x_faces_hi[{faces_tiles.bounds.lo.x,j}], angle_values)
-	--   		east_bound(private_x_faces_lo[{faces_tiles.bounds.hi.x,j}], angle_values)
-	--   	end
+	  	-- Update x faces (west bound/east bound)
+	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
+	  		west_bound(private_x_faces_hi[{x_faces_tiles.bounds.lo.x,j}], angle_values)
+	  		east_bound(private_x_faces_lo[{x_faces_tiles.bounds.hi.x,j}], angle_values)
+	  	end
 	  	
-	--   	-- Update y faces (north bound/south bound)
-	--   	for i = [int](faces_tiles.bounds.lo.x), [int](faces_tiles.bounds.hi.x) + 1 do
-	--   		south_bound(private_y_faces_hi[{i,faces_tiles.bounds.lo.y}], angle_values)
-	--   		north_bound(private_y_faces_lo[{i,faces_tiles.bounds.hi.y}], angle_values)
-	--   	end
+	  	-- Update y faces (north bound/south bound)
+	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
+	  		south_bound(private_y_faces_hi[{i,y_faces_tiles.bounds.lo.y}], angle_values)
+	  		north_bound(private_y_faces_lo[{i,y_faces_tiles.bounds.hi.y}], angle_values)
+	  	end
 
-	--   	-- Perform the sweep for computing new intensities.
+	  	-- Perform the sweep for computing new intensities.
 
-	--   	-- Quadrant 1 - +x, +y
-	-- 	for i = faces_tiles.bounds.lo.x + 1, faces_tiles.bounds.hi.x + 1 do
-	-- 		for j = faces_tiles.bounds.lo.y + 1, faces_tiles.bounds.hi.y + 1 do
+	  	-- Quadrant 1 - +x, +y
+		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
-	-- 			sweep_1(private_cells[{i-1,j-1}], private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], 
-	-- 				private_x_faces_lo[{i-1,j}], private_y_faces_lo[{i,j-1}], angle_values)
-	-- 		end
-	-- 	end 
+				sweep_1(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_lo[{i,j+1}], 
+					private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], angle_values)
+			end
+		end 
 
-	-- 	-- Quadrant 2 - +x, -y
-	-- 	for i = faces_tiles.bounds.lo.x + 1, faces_tiles.bounds.hi.x + 1 do
-	-- 		for j = faces_tiles.bounds.hi.y - 1, faces_tiles.bounds.lo.y - 1, -1 do 
+		-- Quadrant 2 - +x, -y
+		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-	-- 			sweep_2(private_cells[{i-1,j}], private_x_faces_lo[{i,j}], private_y_faces_hi[{i,j}], 
-	-- 				private_x_faces_lo[{i-1,j}], private_y_faces_hi[{i,j+1}], angle_values)
-	-- 		end
-	-- 	end
+				sweep_2(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_hi[{i,j}], 
+					private_x_faces_lo[{i,j}], private_y_faces_hi[{i,j+1}], angle_values)
+			end
+		end
 
-	-- 	-- Quadrant 3 - -x, +y
-	-- 	for i = faces_tiles.bounds.hi.x - 1, faces_tiles.bounds.lo.x - 1, -1 do 
-	-- 		for j = faces_tiles.bounds.lo.y + 1, faces_tiles.bounds.hi.y + 1 do
+		-- Quadrant 3 - -x, +y
+		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
+			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
-	-- 			sweep_3(private_cells[{i,j-1}], private_x_faces_hi[{i,j}], private_y_faces_lo[{i,j}], 
-	-- 				private_x_faces_hi[{i+1,j}], private_y_faces_lo[{i,j-1}], angle_values)
-	-- 		end
-	-- 	end
+				sweep_3(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_lo[{i,j+1}], 
+					private_x_faces_hi[{i+1,j}], private_y_faces_lo[{i,j}], angle_values)
+			end
+		end
 
-	-- 	-- Quadrant 4 - -x, -y
-	-- 	for i = faces_tiles.bounds.hi.x - 1, faces_tiles.bounds.lo.x - 1, -1 do 
-	-- 		for j = faces_tiles.bounds.hi.y - 1, faces_tiles.bounds.lo.y - 1, -1 do 
+		-- Quadrant 4 - -x, -y
+		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
+			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-	-- 			sweep_4(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_hi[{i,j}], 
-	-- 				private_x_faces_hi[{i+1,j}], private_y_faces_hi[{i,j+1}], angle_values)
-	-- 		end
-	-- 	end
+				sweep_4(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_hi[{i,j}], 
+					private_x_faces_hi[{i+1,j}], private_y_faces_hi[{i,j+1}], angle_values)
+			end
+		end
 
- --  		-- Compute the residual and output to the screen.
- --  		res = 0.0
- --  		for color in tiles do
- --  			res = res + residual(private_cells[color])
- --  		end
- --  		res = cmath.sqrt(res)
+  		-- Compute the residual and output to the screen.
+  		res = 0.0
+  		for color in tiles do
+  			res = res + residual(private_cells[color])
+  		end
+  		res = cmath.sqrt(res)
 
 
- --  		if (t == 1) then
- --    		c.printf("\n")
- --    		c.printf(" Iteration     Residual         \n")
- --    		c.printf(" ------------------------------ \n")
- --  		end
- --  		c.printf( "   %3d    %.15e \n", t, res)
+  		if (t == 1) then
+    		c.printf("\n")
+    		c.printf(" Iteration     Residual         \n")
+    		c.printf(" ------------------------------ \n")
+  		end
+  		c.printf( "   %3d    %.15e \n", t, res)
 
- --  		-- Update the intensities and the iteration number.
+  		-- Update the intensities and the iteration number.
 
- --        for color in tiles do
- --        	update(private_cells[color])
- --        end
+        for color in tiles do
+        	update(private_cells[color])
+        end
+
+        break
     	    
-	-- 	t = t + 1
+		t = t + 1
 
-	-- 	break
+	end
 
-	-- end
+  	-- Reduce intensity
+  	for color in tiles do
+    	reduce_intensity(points, angle_values)
+    end
 
- --  	-- Reduce intensity
- --  	for color in tiles do
- --    	reduce_intensity(points, angle_values)
- --    end
-
- --    -- Write a Tecplot file to vizualize the intensity.
- --    --todo: do by cell?
- --    create_tecplot_file(points)
+    -- Write a Tecplot file to vizualize the intensity.
+    --todo: divide by tile?
+    create_tecplot_file(points)
 
 end
 
