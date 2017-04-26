@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 16
-local Ny = 16
+local Nx = 100
+local Ny = 100
 
 -- Domain size
 

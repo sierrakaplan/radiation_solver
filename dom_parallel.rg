@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 16
-local Ny = 16
+local Nx = 100
+local Ny = 100
 
 --todo: Read from file in Lua
 
@@ -1161,7 +1161,7 @@ task main()
 	var res : double = 1.0
 	var N   : int64[1]
 
-	var nt : int64 = 1 -- # tiles per direction
+	var nt : int64 = 4 -- # tiles per direction
 
 	var filename : rawstring = quad_file
 
@@ -1303,9 +1303,7 @@ task main()
 	end
 
   	-- Reduce intensity
-  	for color in tiles do
-    	reduce_intensity(points, angle_values)
-    end
+    reduce_intensity(points, angle_values)
 
     -- Write a Tecplot file to vizualize the intensity.
     --todo: divide by tile?
