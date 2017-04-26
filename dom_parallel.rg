@@ -194,13 +194,13 @@ do
 
 	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * N_angles/4 + (i / 4)
+  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
 		angle_values[index].eta = val[0]
 	end
 
 	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * N_angles/4 + (i / 4)
+  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
 		angle_values[index].w = val[0]
 	end
   
@@ -739,6 +739,8 @@ do
 
   	var angle : int64 = m
 
+  	-- c.printf("angle value x = %lf, y = %lf\n", angle_values[angle].xi, angle_values[angle].eta)
+
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
@@ -817,6 +819,8 @@ do
 
   	var angle : int64 = m + N_angles/4
 
+  	-- c.printf("angle value x = %lf, y = %lf\n", angle_values[angle].xi, angle_values[angle].eta)
+
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
@@ -891,6 +895,8 @@ do
 
   	var angle : int64 = m + (N_angles/4)*2
 
+  	-- c.printf("angle value x = %lf, y = %lf\n", angle_values[angle].xi, angle_values[angle].eta)
+
     -- Use our direction and increments for the sweep.
 
     for j = starty,endy,dindy do
@@ -922,7 +928,7 @@ do
         	+ cmath.fabs(angle_values[angle].eta) * dx * upwind_y_value/gamma)
         	/(points[{i,j}].sigma * dx * dy + cmath.fabs(angle_values[angle].xi) * dy/gamma + cmath.fabs(angle_values[angle].eta) * dx/gamma)
 
-        c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_3[m])
+        -- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, angle, points[{i,j}].I_3[m])
 
 
         x_faces[{indx+dindx, j}].Ifx_3[m] = (points[{i,j}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
@@ -968,6 +974,8 @@ do
   for m = 0, N_angles/4 do
 
   	var angle : int64 = m + (N_angles/4) *3
+
+  	-- c.printf("angle value x = %lf, y = %lf\n", angle_values[angle].xi, angle_values[angle].eta)
 
     -- Use our direction and increments for the sweep.
 
@@ -1108,7 +1116,7 @@ do
 
  	-- Tecplot ASCII format (cell-centered)
 
-  	var f = c.fopen("radiation_solver/intensity.dat", "w")
+  	var f = c.fopen("radiation_solver/intensity_parallel.dat", "w")
 
   	-- Write header
 
@@ -1290,9 +1298,9 @@ task main()
         	update(private_cells[color])
         end
 
-        break
-    	    
 		t = t + 1
+
+		break
 
 	end
 

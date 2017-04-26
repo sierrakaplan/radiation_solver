@@ -513,7 +513,7 @@ do
 
   -- Tecplot ASCII format (cell-centered)
 
-  var f = c.fopen("intensity.dat", "w")
+  var f = c.fopen("radiation_solver/intensity_serial.dat", "w")
 
   -- Write header
 
