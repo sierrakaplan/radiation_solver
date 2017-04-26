@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 4
-local Ny = 4
+local Nx = 16
+local Ny = 16
 
 --todo: Read from file in Lua
 
@@ -1161,7 +1161,7 @@ task main()
 	var res : double = 1.0
 	var N   : int64[1]
 
-	var nt : int64 = 2 -- # tiles per direction
+	var nt : int64 = 1 -- # tiles per direction
 
 	var filename : rawstring = quad_file
 
@@ -1299,8 +1299,6 @@ task main()
         end
 
 		t = t + 1
-
-		break
 
 	end
 

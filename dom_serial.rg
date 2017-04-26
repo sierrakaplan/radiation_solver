@@ -30,8 +30,8 @@ local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 4
-local Ny = 4
+local Nx = 16
+local Ny = 16
 
 -- Domain size
 
@@ -427,7 +427,7 @@ do
 
 
         -- if dindy > 0 and dindx < 0 then
-          c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, m, points[{m,i,j}].I)
+          -- c.printf("x=%d,y=%d,angle=%d I = %lf \n", i, j, m, points[{m,i,j}].I)
         -- end
 
 
@@ -614,8 +614,6 @@ task main()
         
     update(points)
     t = t + 1
-
-    break
 
   end
 
