@@ -30,13 +30,13 @@ local quad_file = "radiation_solver/S8.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 100
-local Ny = 100
+local Nx = 1000
+local Ny = 1000
 
 --todo: Read from file in Lua
 
 terra get_number_angles()
-	var filename : rawstring = quad_file
+	var filename : rawstring = "radiation_solver/S8.dat"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
   	c.fscanf(f, "%d\n", N)
@@ -143,13 +143,9 @@ fspace y_face {
 	Ify_4 : double[N_angles/4] 		-- y face intensity per angle
 }
 
---todo: change to fill
-task initialize_faces(x_faces : region(ispace(int2d), x_face),
-					  y_faces : region(ispace(int2d), y_face))
-where reads writes(x_faces.Ifx_1, y_faces.Ify_1,
-	x_faces.Ifx_2, y_faces.Ify_2,
-	x_faces.Ifx_3, y_faces.Ify_3,
-	x_faces.Ifx_4, y_faces.Ify_4)
+task initialize_x_faces(x_faces : region(ispace(int2d), x_face))
+where reads writes(x_faces.Ifx_1, x_faces.Ifx_2,
+				x_faces.Ifx_3, x_faces.Ifx_4)
 do
 
 	for i in x_faces do
@@ -160,6 +156,13 @@ do
 			x_faces[i].Ifx_4[m] = 0.0
 		end
 	end
+
+end
+
+task initialize_y_faces(y_faces : region(ispace(int2d), y_face))
+where reads writes(y_faces.Ify_1, y_faces.Ify_2,
+				y_faces.Ify_3, y_faces.Ify_4)
+do
 
 	for i in y_faces do
 		for m = 0, N_angles/4 do
@@ -172,8 +175,7 @@ do
 
 end
 
-task initialize_angle_values(angle_values : region(ispace(int1d), angle_value),
-						   filename : rawstring)
+task initialize_angle_values(angle_values : region(ispace(int1d), angle_value))
 where writes (angle_values.xi, angle_values.eta, angle_values.w)
 
 do
@@ -182,7 +184,7 @@ do
 
   	var val : double[1]
 
-  	var f = c.fopen(filename, "rb")
+  	var f = c.fopen("radiation_solver/S8.dat", "rb")
 
   	read_val(f, val) -- gets rid of num angles
 
@@ -1163,7 +1165,7 @@ task main()
 
 	var nt : int64 = 4 -- # tiles per direction
 
-	var filename : rawstring = quad_file
+	-- var filename : rawstring = quad_file
 
 	-- Create a region from our grid index space (angles + 2D grid in space)
 	-- and our cell field space defined above.
@@ -1191,11 +1193,7 @@ task main()
 
 	-- Initialize all arrays in our field space on the grid. 
 
-	initialize(points)
-
-	initialize_faces(x_faces, y_faces)
-
-	initialize_angle_values(angle_values, filename)
+	initialize_angle_values(angle_values)
 
 	-- Tile partition cells
 	var tiles = ispace(int2d, {x = nt, y = nt})
@@ -1215,6 +1213,18 @@ task main()
 	var private_x_faces_lo = make_interior_partition_x_lo(x_faces, x_faces_tiles, nt, Nx+1, Ny)
 
 	var private_y_faces_lo = make_interior_partition_y_lo(y_faces, y_faces_tiles, nt, Nx, Ny+1)
+
+	for color in tiles do
+		initialize(private_cells[color])
+	end
+
+	-- for color in x_faces_tiles do
+	-- 	initialize_x_faces(private_x_faces_hi[color])
+	-- end
+
+	-- for color in y_faces_tiles do
+	-- 	initialize_y_faces(private_y_faces_hi[color])
+	-- end
 
 
 	while (res > tol) do
@@ -1280,7 +1290,7 @@ task main()
   		-- Compute the residual and output to the screen.
   		res = 0.0
   		for color in tiles do
-  			res = res + residual(private_cells[color])
+  			res += residual(private_cells[color])
   		end
   		res = cmath.sqrt(res)
 
@@ -1300,14 +1310,18 @@ task main()
 
 		t = t + 1
 
+		if t > 10 then
+			break
+		end
+
 	end
 
   	-- Reduce intensity
-    reduce_intensity(points, angle_values)
+    -- reduce_intensity(points, angle_values)
 
     -- Write a Tecplot file to vizualize the intensity.
     --todo: divide by tile?
-    create_tecplot_file(points)
+    -- create_tecplot_file(points)
 
 end
 
