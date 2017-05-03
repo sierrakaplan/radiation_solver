@@ -26,17 +26,17 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "radiation_solver/S8.dat"
+local quad_file = "radiation_solver/S16.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 1000
-local Ny = 1000
+local Nx = 100
+local Ny = 100
 
 --todo: Read from file in Lua
 
 terra get_number_angles()
-	var filename : rawstring = "radiation_solver/S8.dat"
+	var filename : rawstring = "radiation_solver/S16.dat"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
   	c.fscanf(f, "%d\n", N)
@@ -184,26 +184,23 @@ do
 
   	var val : double[1]
 
-  	var f = c.fopen("radiation_solver/S8.dat", "rb")
+  	var f = c.fopen("radiation_solver/S16.dat", "rb")
 
   	read_val(f, val) -- gets rid of num angles
 
   	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
-		angle_values[index].xi = val[0]
+		angle_values[i].xi = val[0]
 	end
 
 	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
-		angle_values[index].eta = val[0]
+		angle_values[i].eta = val[0]
 	end
 
 	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
-		angle_values[index].w = val[0]
+		angle_values[i].w = val[0]
 	end
   
 
@@ -1316,12 +1313,13 @@ task main()
 
 	end
 
+	 --todo: divide by tile?
+
   	-- Reduce intensity
-    -- reduce_intensity(points, angle_values)
+    reduce_intensity(points, angle_values)
 
     -- Write a Tecplot file to vizualize the intensity.
-    --todo: divide by tile?
-    -- create_tecplot_file(points)
+    create_tecplot_file(points)
 
 end
 
