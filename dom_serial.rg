@@ -26,12 +26,12 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "radiation_solver/S16.dat"
+local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 100
-local Ny = 100
+local Nx = 1000
+local Ny = 1000
 
 -- Domain size
 
@@ -615,9 +615,9 @@ task main()
     update(points)
     t = t + 1
 
-    if t > 10 then
-      break
-    end
+    -- if t > 2 then
+    --   break
+    -- end
 
   end
 

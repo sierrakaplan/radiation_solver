@@ -26,17 +26,17 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "radiation_solver/S16.dat"
+local quad_file = "radiation_solver/S2.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 100
-local Ny = 100
+local Nx = 1000
+local Ny = 1000
 
 --todo: Read from file in Lua
 
 terra get_number_angles()
-	var filename : rawstring = "radiation_solver/S16.dat"
+	var filename : rawstring = "radiation_solver/S2.dat"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
   	c.fscanf(f, "%d\n", N)
@@ -184,7 +184,7 @@ do
 
   	var val : double[1]
 
-  	var f = c.fopen("radiation_solver/S16.dat", "rb")
+  	var f = c.fopen("radiation_solver/S2.dat", "rb")
 
   	read_val(f, val) -- gets rid of num angles
 
@@ -1035,20 +1035,23 @@ do
   	for m = 0, N_angles/4 do
     	for i = limits.lo.x, limits.hi.x + 1 do
       		for j = limits.lo.y, limits.hi.y + 1 do
-        		res = res + (1.0/(Nx*Ny*N_angles+1))
+        		res += (1.0/(Nx*Ny*(N_angles)))
           			*cmath.pow((points[{i,j}].I_1[m]-points[{i,j}].Iiter_1[m]),2.0)/cmath.pow((points[{i,j}].I_1[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*N_angles+1))
+          		res += (1.0/(Nx*Ny*(N_angles)))
           			*cmath.pow((points[{i,j}].I_2[m]-points[{i,j}].Iiter_2[m]),2.0)/cmath.pow((points[{i,j}].I_2[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*N_angles+1))
+          		res += (1.0/(Nx*Ny*(N_angles)))
           			*cmath.pow((points[{i,j}].I_3[m]-points[{i,j}].Iiter_3[m]),2.0)/cmath.pow((points[{i,j}].I_3[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*N_angles+1))
+          		res += (1.0/(Nx*Ny*(N_angles)))
           			*cmath.pow((points[{i,j}].I_4[m]-points[{i,j}].Iiter_4[m]),2.0)/cmath.pow((points[{i,j}].I_4[m]),2.0)
       		end
     	end
   	end
+
+  	-- res = res + (1.0/(Nx*Ny*(limits.hi.x+1)))
+   --        *cmath.pow((points[{m,i,j}].I-points[{m,i,j}].Iiter),2.0)/cmath.pow((points[{m,i,j}].I),2.0)
 
   	return res
 end
@@ -1307,9 +1310,9 @@ task main()
 
 		t = t + 1
 
-		if t > 10 then
-			break
-		end
+		-- if t > 2 then
+		-- 	break
+		-- end
 
 	end
 
