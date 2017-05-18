@@ -26,12 +26,12 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "radiation_solver/S2.dat"
+local quad_file = "radiation_solver/S4.dat"
 
 -- Grid size (x cells, y cells)
 
-local Nx = 1000
-local Ny = 1000
+local Nx = 100
+local Ny = 100
 
 -- Domain size
 
