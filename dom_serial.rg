@@ -615,10 +615,6 @@ task main()
     update(points)
     t = t + 1
 
-    if t > 10 then
-      break
-    end
-
   end
 
   -- Write a Tecplot file to vizualize the intensity.

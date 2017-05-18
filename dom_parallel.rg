@@ -1035,16 +1035,16 @@ do
   	for m = 0, N_angles/4 do
     	for i = limits.lo.x, limits.hi.x + 1 do
       		for j = limits.lo.y, limits.hi.y + 1 do
-        		res = res + (1.0/(Nx*Ny*N_angles+1))
+        		res = res + (1.0/(Nx*Ny*N_angles))
           			*cmath.pow((points[{i,j}].I_1[m]-points[{i,j}].Iiter_1[m]),2.0)/cmath.pow((points[{i,j}].I_1[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*N_angles+1))
+          		res = res + (1.0/(Nx*Ny*N_angles))
           			*cmath.pow((points[{i,j}].I_2[m]-points[{i,j}].Iiter_2[m]),2.0)/cmath.pow((points[{i,j}].I_2[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*N_angles+1))
+          		res = res + (1.0/(Nx*Ny*N_angles))
           			*cmath.pow((points[{i,j}].I_3[m]-points[{i,j}].Iiter_3[m]),2.0)/cmath.pow((points[{i,j}].I_3[m]),2.0)
 
-          		res = res + (1.0/(Nx*Ny*N_angles+1))
+          		res = res + (1.0/(Nx*Ny*N_angles))
           			*cmath.pow((points[{i,j}].I_4[m]-points[{i,j}].Iiter_4[m]),2.0)/cmath.pow((points[{i,j}].I_4[m]),2.0)
       		end
     	end
@@ -1306,10 +1306,6 @@ task main()
         end
 
 		t = t + 1
-
-		if t > 10 then
-			break
-		end
 
 	end
 
