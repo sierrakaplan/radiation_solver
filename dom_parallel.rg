@@ -26,7 +26,7 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
-local quad_file = "radiation_solver/S4.dat"
+local quad_file = "radiation_solver/S8.dat"
 
 -- Grid size (x cells, y cells)
 
@@ -36,7 +36,7 @@ local Ny = 100
 --todo: Read from file in Lua
 
 terra get_number_angles()
-	var filename : rawstring = "radiation_solver/S4.dat"
+	var filename : rawstring = "radiation_solver/S8.dat"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
   	c.fscanf(f, "%d\n", N)
@@ -184,7 +184,7 @@ do
 
   	var val : double[1]
 
-  	var f = c.fopen("radiation_solver/S4.dat", "rb")
+  	var f = c.fopen("radiation_solver/S8.dat", "rb")
 
   	read_val(f, val) -- gets rid of num angles
 
@@ -1166,7 +1166,7 @@ task main()
 	var res : double = 1.0
 	var N   : int64[1]
 
-	var nt : int64 = 1 -- # tiles per direction
+	var nt : int64 = 4 -- # tiles per direction
 
 	-- var filename : rawstring = quad_file
 
