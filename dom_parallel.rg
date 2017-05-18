@@ -32,6 +32,7 @@ local quad_file = "radiation_solver/S8.dat"
 
 local Nx = 100
 local Ny = 100
+local Nz = 100
 
 --todo: Read from file in Lua
 
@@ -50,11 +51,13 @@ local N_angles = get_number_angles()
 
 local Lx = 1.0
 local Ly = 1.0
+local Lz = 1.0
 
 -- Grid spacing
 
 local dx = Lx/Nx
 local dy = Ly/Ny
+local dz = Lx/Nz
 
 -- Albedo
 
@@ -104,15 +107,25 @@ fspace angle_value {
 fspace point {
 
 	-- Intensities per angle quadrant
-	I_1 : double[N_angles/4],		-- cell center intensity per angle
-	I_2 : double[N_angles/4],		-- cell center intensity per angle
-	I_3 : double[N_angles/4],		-- cell center intensity per angle
-	I_4 : double[N_angles/4],		-- cell center intensity per angle
+	I_1 : double[N_angles/8],		-- cell center intensity per angle
+	I_2 : double[N_angles/8],		-- cell center intensity per angle
+	I_3 : double[N_angles/8],		-- cell center intensity per angle
+	I_4 : double[N_angles/8],		-- cell center intensity per angle
 
-	Iiter_1 : double[N_angles/4],   -- iterative intensity per angle
-	Iiter_2 : double[N_angles/4],   -- iterative intensity per angle
-	Iiter_3 : double[N_angles/4],   -- iterative intensity per angle
-	Iiter_4 : double[N_angles/4],   -- iterative intensity per angle
+	I_5 : double[N_angles/8],		-- cell center intensity per angle
+	I_6 : double[N_angles/8],		-- cell center intensity per angle
+	I_7 : double[N_angles/8],		-- cell center intensity per angle
+	I_8 : double[N_angles/8],		-- cell center intensity per angle
+
+	Iiter_1 : double[N_angles/8],   -- iterative intensity per angle
+	Iiter_2 : double[N_angles/8],   -- iterative intensity per angle
+	Iiter_3 : double[N_angles/8],   -- iterative intensity per angle
+	Iiter_4 : double[N_angles/8],   -- iterative intensity per angle
+
+	Iiter_5 : double[N_angles/8],   -- iterative intensity per angle
+	Iiter_6 : double[N_angles/8],   -- iterative intensity per angle
+	Iiter_7 : double[N_angles/8],   -- iterative intensity per angle
+	Iiter_8 : double[N_angles/8],   -- iterative intensity per angle
 
 	G : double,						-- intensity summation over all angles
 
@@ -130,17 +143,39 @@ fspace point {
 }
 
 fspace x_face {
-	Ifx_1 : double[N_angles/4],		-- x face intensity per angle
-	Ifx_2 : double[N_angles/4],		-- x face intensity per angle
-	Ifx_3 : double[N_angles/4],		-- x face intensity per angle
-	Ifx_4 : double[N_angles/4]		-- x face intensity per angle
+	Ifx_1 : double[N_angles/8],		-- x face intensity per angle
+	Ifx_2 : double[N_angles/8],		-- x face intensity per angle
+	Ifx_3 : double[N_angles/8],		-- x face intensity per angle
+	Ifx_4 : double[N_angles/8]		-- x face intensity per angle
+
+	Ifx_5 : double[N_angles/8],		-- x face intensity per angle
+	Ifx_6 : double[N_angles/8],		-- x face intensity per angle
+	Ifx_7 : double[N_angles/8],		-- x face intensity per angle
+	Ifx_8 : double[N_angles/8]		-- x face intensity per angle
 }
 
 fspace y_face {
-	Ify_1 : double[N_angles/4], 	-- y face intensity per angle
-	Ify_2 : double[N_angles/4], 	-- y face intensity per angle
-	Ify_3 : double[N_angles/4], 	-- y face intensity per angle
-	Ify_4 : double[N_angles/4] 		-- y face intensity per angle
+	Ify_1 : double[N_angles/8], 	-- y face intensity per angle
+	Ify_2 : double[N_angles/8], 	-- y face intensity per angle
+	Ify_3 : double[N_angles/8], 	-- y face intensity per angle
+	Ify_4 : double[N_angles/8] 		-- y face intensity per angle
+
+	Ify_5 : double[N_angles/8], 	-- y face intensity per angle
+	Ify_6 : double[N_angles/8], 	-- y face intensity per angle
+	Ify_7 : double[N_angles/8], 	-- y face intensity per angle
+	Ify_8 : double[N_angles/8] 		-- y face intensity per angle
+}
+
+fspace z_face {
+	Ifz_1 : double[N_angles/8], 	-- z face intensity per angle
+	Ifz_2 : double[N_angles/8], 	
+	Ifz_3 : double[N_angles/8], 	
+	Ifz_4 : double[N_angles/8] 		
+
+	Ifz_5 : double[N_angles/8], 	
+	Ifz_6 : double[N_angles/8], 	
+	Ifz_7 : double[N_angles/8], 	
+	Ifz_8 : double[N_angles/8] 		
 }
 
 task initialize_x_faces(x_faces : region(ispace(int2d), x_face))
@@ -1173,20 +1208,26 @@ task main()
 	-- Create a region from our grid index space (angles + 2D grid in space)
 	-- and our cell field space defined above.
 
-	var grid = ispace(int2d, {x = Nx, y = Ny})
+	var grid = ispace(int3d, {x = Nx, y = Ny, z = Nz})
 	var points = region(grid, point)
 
-	-- 2D Region from grid index space (+1 in x direction) and x_face field space
+	-- 3D Region from grid index space (+1 in x direction) and x_face field space
 
-	var grid_x = ispace(int2d, {x = Nx+1, y = Ny})
+	var grid_x = ispace(int3d, {x = Nx+1, y = Ny, z = Nz})
 
 	var x_faces = region(grid_x, x_face)
 
-	-- 2D Region from grid index space (+1 in y direction) and y_face field space
+	-- 3D Region from grid index space (+1 in y direction) and y_face field space
 
-	var grid_y = ispace(int2d, {x = Nx, y = Ny+1})
+	var grid_y = ispace(int3d, {x = Nx, y = Ny+1, z = Nz})
 
 	var y_faces = region(grid_y, y_face)
+
+	-- 3D Region from grid index space (+1 in z direction) and z_face field space
+
+	var grid_z = ispace(int3d, {x = Nx, y = Ny, z = Nz+1})
+
+	var z_faces = region(grid_z, z_face)
 
 	-- 1D Region from angle values
 
@@ -1199,14 +1240,16 @@ task main()
 	initialize_angle_values(angle_values)
 
 	-- Tile partition cells
-	var tiles = ispace(int2d, {x = nt, y = nt})
+	var tiles = ispace(int3d, {x = nt, y = nt, z = nt})
 
-	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny)
+	-- todo: edit partitions for 3D
+	var private_cells = make_interior_partition(points, tiles, nt, Nx, Ny, Nz)
 
 	-- Extra tile required for ghost
 	var nt_face : int64 = nt+1 -- # tiles per direction
-	var x_faces_tiles = ispace(int2d, {x = nt_face, y = nt})
-	var y_faces_tiles = ispace(int2d, {x = nt, y = nt_face})
+	var x_faces_tiles = ispace(int2d, {x = nt_face, y = nt, z = nt})
+	var y_faces_tiles = ispace(int2d, {x = nt, y = nt_face, z = nt})
+	var z_faces_tiles = ispace(int2d, {x = nt, y = nt, z = nt_face})
 
 	-- Partition faces
 	var private_x_faces_hi = make_interior_partition_x_hi(x_faces, x_faces_tiles, nt, Nx+1, Ny)
@@ -1254,7 +1297,7 @@ task main()
 
 	  	-- Perform the sweep for computing new intensities.
 
-	  	-- Quadrant 1 - +x, +y
+	  	-- Quadrant 1 - +x, +y, +z
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
@@ -1263,7 +1306,16 @@ task main()
 			end
 		end 
 
-		-- Quadrant 2 - +x, -y
+		-- Quadrant 1 - +x, +y, -z
+		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
+			
+				sweep_1(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_lo[{i,j+1}], 
+					private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], angle_values)
+			end
+		end 
+
+		-- Quadrant 2 - +x, -y, +z
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
@@ -1272,7 +1324,16 @@ task main()
 			end
 		end
 
-		-- Quadrant 3 - -x, +y
+		-- Quadrant 2 - +x, -y, -z
+		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
+			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
+
+				sweep_2(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_hi[{i,j}], 
+					private_x_faces_lo[{i,j}], private_y_faces_hi[{i,j+1}], angle_values)
+			end
+		end
+
+		-- Quadrant 3 - -x, +y, +z
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
@@ -1281,7 +1342,25 @@ task main()
 			end
 		end
 
-		-- Quadrant 4 - -x, -y
+		-- Quadrant 3 - -x, +y, -z
+		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
+			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
+
+				sweep_3(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_lo[{i,j+1}], 
+					private_x_faces_hi[{i+1,j}], private_y_faces_lo[{i,j}], angle_values)
+			end
+		end
+
+		-- Quadrant 4 - -x, -y, +z
+		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
+			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
+
+				sweep_4(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_hi[{i,j}], 
+					private_x_faces_hi[{i+1,j}], private_y_faces_hi[{i,j+1}], angle_values)
+			end
+		end
+
+		-- Quadrant 4 - -x, -y, -z
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
