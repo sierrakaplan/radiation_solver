@@ -146,7 +146,7 @@ fspace x_face {
 	Ifx_1 : double[N_angles/8],		-- x face intensity per angle
 	Ifx_2 : double[N_angles/8],		-- x face intensity per angle
 	Ifx_3 : double[N_angles/8],		-- x face intensity per angle
-	Ifx_4 : double[N_angles/8]		-- x face intensity per angle
+	Ifx_4 : double[N_angles/8],		-- x face intensity per angle
 
 	Ifx_5 : double[N_angles/8],		-- x face intensity per angle
 	Ifx_6 : double[N_angles/8],		-- x face intensity per angle
@@ -158,7 +158,7 @@ fspace y_face {
 	Ify_1 : double[N_angles/8], 	-- y face intensity per angle
 	Ify_2 : double[N_angles/8], 	-- y face intensity per angle
 	Ify_3 : double[N_angles/8], 	-- y face intensity per angle
-	Ify_4 : double[N_angles/8] 		-- y face intensity per angle
+	Ify_4 : double[N_angles/8], 	-- y face intensity per angle
 
 	Ify_5 : double[N_angles/8], 	-- y face intensity per angle
 	Ify_6 : double[N_angles/8], 	-- y face intensity per angle
@@ -170,7 +170,7 @@ fspace z_face {
 	Ifz_1 : double[N_angles/8], 	-- z face intensity per angle
 	Ifz_2 : double[N_angles/8], 	
 	Ifz_3 : double[N_angles/8], 	
-	Ifz_4 : double[N_angles/8] 		
+	Ifz_4 : double[N_angles/8], 		
 
 	Ifz_5 : double[N_angles/8], 	
 	Ifz_6 : double[N_angles/8], 	
@@ -178,37 +178,38 @@ fspace z_face {
 	Ifz_8 : double[N_angles/8] 		
 }
 
-task initialize_x_faces(x_faces : region(ispace(int2d), x_face))
-where reads writes(x_faces.Ifx_1, x_faces.Ifx_2,
-				x_faces.Ifx_3, x_faces.Ifx_4)
-do
+-- task initialize_x_faces(x_faces : region(ispace(int2d), x_face))
+-- where reads writes(x_faces.Ifx_1, x_faces.Ifx_2,
+-- 				x_faces.Ifx_3, x_faces.Ifx_4)
+-- do
 
-	for i in x_faces do
-		for m = 0, N_angles/4 do
-			x_faces[i].Ifx_1[m] = 0.0
-			x_faces[i].Ifx_2[m] = 0.0
-			x_faces[i].Ifx_3[m] = 0.0
-			x_faces[i].Ifx_4[m] = 0.0
-		end
-	end
+-- 	for i in x_faces do
+-- 		for m = 0, N_angles/4 do
+-- 			x_faces[i].Ifx_1[m] = 0.0
+-- 			x_faces[i].Ifx_2[m] = 0.0
+-- 			x_faces[i].Ifx_3[m] = 0.0
+-- 			x_faces[i].Ifx_4[m] = 0.0
 
-end
+-- 		end
+-- 	end
 
-task initialize_y_faces(y_faces : region(ispace(int2d), y_face))
-where reads writes(y_faces.Ify_1, y_faces.Ify_2,
-				y_faces.Ify_3, y_faces.Ify_4)
-do
+-- end
 
-	for i in y_faces do
-		for m = 0, N_angles/4 do
-			y_faces[i].Ify_1[m] = 0.0
-			y_faces[i].Ify_2[m] = 0.0
-			y_faces[i].Ify_3[m] = 0.0
-			y_faces[i].Ify_4[m] = 0.0
-		end
-	end
+-- task initialize_y_faces(y_faces : region(ispace(int2d), y_face))
+-- where reads writes(y_faces.Ify_1, y_faces.Ify_2,
+-- 				y_faces.Ify_3, y_faces.Ify_4)
+-- do
 
-end
+-- 	for i in y_faces do
+-- 		for m = 0, N_angles/4 do
+-- 			y_faces[i].Ify_1[m] = 0.0
+-- 			y_faces[i].Ify_2[m] = 0.0
+-- 			y_faces[i].Ify_3[m] = 0.0
+-- 			y_faces[i].Ify_4[m] = 0.0
+-- 		end
+-- 	end
+
+-- end
 
 task initialize_angle_values(angle_values : region(ispace(int1d), angle_value))
 where writes (angle_values.xi, angle_values.eta, angle_values.w)
@@ -225,19 +226,19 @@ do
 
   	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
+  		var index : int = (i % 8) * (N_angles/8) + (i / 8)
 		angle_values[index].xi = val[0]
 	end
 
 	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
+  		var index : int = (i % 8) * (N_angles/8) + (i / 8)
 		angle_values[index].eta = val[0]
 	end
 
 	for i in angle_values do
   		read_val(f, val)
-  		var index : int = (i % 4) * (N_angles/4) + (i / 4)
+  		var index : int = (i % 8) * (N_angles/8) + (i / 8)
 		angle_values[index].w = val[0]
 	end
   
@@ -253,10 +254,18 @@ where
   	points.I_2,
   	points.I_3,
   	points.I_4,
+  	points.I_5,
+  	points.I_6,
+  	points.I_7,
+  	points.I_8,
   	points.Iiter_1,
   	points.Iiter_2,
   	points.Iiter_3,
-  	points.Iiter_4), 
+  	points.Iiter_4,
+  	points.Iiter_5,
+  	points.Iiter_6,
+  	points.Iiter_7,
+  	points.Iiter_8), 
   writes(points.Ib, points.sigma, points.G, points.S)
 do
 
@@ -287,6 +296,18 @@ do
 
 	    	points[i].I_4[m]     = 0.0
 	    	points[i].Iiter_4[m] = 0.0
+
+	    	points[i].I_5[m]     = 0.0
+	    	points[i].Iiter_5[m] = 0.0
+
+	    	points[i].I_6[m]     = 0.0
+	    	points[i].Iiter_6[m] = 0.0
+
+	    	points[i].I_7[m]     = 0.0
+	    	points[i].Iiter_7[m] = 0.0
+
+	    	points[i].I_8[m]     = 0.0
+	    	points[i].Iiter_8[m] = 0.0
 		end
 	    
     	points[i].G = 0.0
@@ -300,10 +321,11 @@ do
 end
 
 -- Update source term
-task source_term(points : region(ispace(int2d), point),
+task source_term(points : region(ispace(int3d), point),
 				angle_values : region(ispace(int1d), angle_value))
 where
   reads (points.Iiter_1, points.Iiter_2, points.Iiter_3, points.Iiter_4,
+  		points.Iiter_2, points.Iiter_3, points.Iiter_4, points.Iiter_5,
   	points.Ib, points.sigma, angle_values.w),
   reads writes (points.S)
 do
@@ -317,20 +339,35 @@ do
 
   	for i = limits.lo.x, limits.hi.x + 1 do
     	for j = limits.lo.y, limits.hi.y + 1 do
-      		points[{i,j}].S = (1.0-omega)*SB*points[{i,j}].sigma*points[{i,j}].Ib
-     	 	for m = 0, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j}].Iiter_1[m]
+    		for k = limits.lo.z, limits.hi.z + 1 do
+	      		points[{i,j,k}].S = (1.0-omega)*SB*points[{i,j,k}].sigma*points[{i,j,k}].Ib
+	     	 	for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j,k}].Iiter_1[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+N_angles/8].w*points[{i,j,k}].Iiter_2[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+(N_angles/8)*2].w*points[{i,j,k}].Iiter_3[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+(N_angles/8)*3].w*points[{i,j,k}].Iiter_4[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+(N_angles/8)*4].w*points[{i,j,k}].Iiter_5[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+(N_angles/8)*5].w*points[{i,j,k}].Iiter_6[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+(N_angles/8)*6].w*points[{i,j,k}].Iiter_7[m]
+	      		end
+	      		for m = 0, N_angles/8 do
+	        		points[{i,j,k}].S = points[{i,j,k}].S + omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m+(N_angles/8)*7].w*points[{i,j,k}].Iiter_8[m]
+	      		end
+
+      			-- c.printf("source term %d %d = %lf ", i, j, points[{i,j}].S)
       		end
-      		for m = 0, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+N_angles/4].w*points[{i,j}].Iiter_2[m]
-      		end
-      		for m = 0, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+(N_angles/4)*2].w*points[{i,j}].Iiter_3[m]
-      		end
-      		for m = 0, N_angles/4 do
-        		points[{i,j}].S = points[{i,j}].S + omega*points[{i,j}].sigma/(4.0*pi)*angle_values[m+(N_angles/4)*3].w*points[{i,j}].Iiter_4[m]
-      		end
-      		-- c.printf("source term %d %d = %lf ", i, j, points[{i,j}].S)
     	end
     	-- c.printf("\n")
   	end
@@ -1285,14 +1322,26 @@ task main()
 	
 	  	-- Update x faces (west bound/east bound)
 	  	for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
-	  		west_bound(private_x_faces_hi[{x_faces_tiles.bounds.lo.x,j}], angle_values)
-	  		east_bound(private_x_faces_lo[{x_faces_tiles.bounds.hi.x,j}], angle_values)
+	  		for k = [int](tiles.bounds.lo.z), [int](tiles.bounds.hi.z) + 1 do
+	  			west_bound(private_x_faces_hi[{x_faces_tiles.bounds.lo.x,j,k}], angle_values)
+	  			east_bound(private_x_faces_lo[{x_faces_tiles.bounds.hi.x,j,k}], angle_values)
+	  		end
 	  	end
 	  	
 	  	-- Update y faces (north bound/south bound)
 	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
-	  		south_bound(private_y_faces_hi[{i,y_faces_tiles.bounds.lo.y}], angle_values)
-	  		north_bound(private_y_faces_lo[{i,y_faces_tiles.bounds.hi.y}], angle_values)
+	  		for k = [int](tiles.bounds.lo.z), [int](tiles.bounds.hi.z) + 1 do
+	  			south_bound(private_y_faces_hi[{i,y_faces_tiles.bounds.lo.y,k}], angle_values)
+	  			north_bound(private_y_faces_lo[{i,y_faces_tiles.bounds.hi.y,k}], angle_values)
+	  		end
+	  	end
+
+	  	-- Update z faces (up bound, down bound)
+	  	for i = [int](tiles.bounds.lo.x), [int](tiles.bounds.hi.x) + 1 do
+	  		for j = [int](tiles.bounds.lo.y), [int](tiles.bounds.hi.y) + 1 do
+	  			up_bound(private_z_faces_hi[{i,j,z_faces_tiles.bounds.lo.z}], angle_values)
+	  			down_bound(private_z_faces_lo[{i,j,z_faces_tiles.bounds.hi.z}], angle_values)
+	  		end
 	  	end
 
 	  	-- Perform the sweep for computing new intensities.
@@ -1301,8 +1350,10 @@ task main()
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
-				sweep_1(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_lo[{i,j+1}], 
-					private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], angle_values)
+				sweep_1(private_cells[{i,j,k}], 
+					private_x_faces_lo[{i+1,j,k}], private_y_faces_lo[{i,j+1,k}], private_z_faces_lo[{i,j,k+1}], 
+					private_x_faces_lo[{i,j,k}], private_y_faces_lo[{i,j,k}], private_z_faces_lo[{i,j,k}], 
+					angle_values)
 			end
 		end 
 
@@ -1310,8 +1361,10 @@ task main()
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 			
-				sweep_1(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_lo[{i,j+1}], 
-					private_x_faces_lo[{i,j}], private_y_faces_lo[{i,j}], angle_values)
+				sweep_1(private_cells[{i,j,k}], 
+					private_x_faces_lo[{i+1,j,k}], private_y_faces_lo[{i,j+1,k}], private_z_faces_hi[{i,j,k}], 
+					private_x_faces_lo[{i,j,k}], private_y_faces_lo[{i,j,k}], private_z_faces_hi[{i,j,k+1}], 
+					angle_values)
 			end
 		end 
 
@@ -1319,8 +1372,10 @@ task main()
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_2(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_hi[{i,j}], 
-					private_x_faces_lo[{i,j}], private_y_faces_hi[{i,j+1}], angle_values)
+				sweep_2(private_cells[{i,j,k}], 
+					private_x_faces_lo[{i+1,j,k}], private_y_faces_hi[{i,j}], private_z_faces_lo[{i,j,k+1}],
+					private_x_faces_lo[{i,j,k}], private_y_faces_hi[{i,j+1,k}], private_z_faces_lo[{i,j,k}], 
+					angle_values)
 			end
 		end
 
@@ -1328,8 +1383,10 @@ task main()
 		for i = tiles.bounds.lo.x, tiles.bounds.hi.x + 1 do
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_2(private_cells[{i,j}], private_x_faces_lo[{i+1,j}], private_y_faces_hi[{i,j}], 
-					private_x_faces_lo[{i,j}], private_y_faces_hi[{i,j+1}], angle_values)
+				sweep_2(private_cells[{i,j,k}], 
+					private_x_faces_lo[{i+1,j,k}], private_y_faces_hi[{i,j}], private_z_faces_hi[{i,j,k}],
+					private_x_faces_lo[{i,j,k}], private_y_faces_hi[{i,j+1,k}], private_z_faces_hi[{i,j,k+1}], 
+					angle_values)
 			end
 		end
 
@@ -1337,8 +1394,10 @@ task main()
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
-				sweep_3(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_lo[{i,j+1}], 
-					private_x_faces_hi[{i+1,j}], private_y_faces_lo[{i,j}], angle_values)
+				sweep_3(private_cells[{i,j,k}], 
+					private_x_faces_hi[{i,j,k}], private_y_faces_lo[{i,j+1,k}], private_z_faces_lo[{i,j,k+1}],
+					private_x_faces_hi[{i+1,j,k}], private_y_faces_lo[{i,j,k}], private_z_faces_lo[{i,j,k}], 
+					angle_values)
 			end
 		end
 
@@ -1346,8 +1405,10 @@ task main()
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
 			for j = tiles.bounds.lo.y, tiles.bounds.hi.y + 1 do
 
-				sweep_3(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_lo[{i,j+1}], 
-					private_x_faces_hi[{i+1,j}], private_y_faces_lo[{i,j}], angle_values)
+				sweep_3(private_cells[{i,j,k}], 
+					private_x_faces_hi[{i,j,k}], private_y_faces_lo[{i,j+1,k}], private_z_faces_lo[{i,j,k}],
+					private_x_faces_hi[{i+1,j,k}], private_y_faces_lo[{i,j,k}], private_z_faces_lo[{i,j,k+1}], 
+					angle_values)
 			end
 		end
 
@@ -1355,8 +1416,10 @@ task main()
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_4(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_hi[{i,j}], 
-					private_x_faces_hi[{i+1,j}], private_y_faces_hi[{i,j+1}], angle_values)
+				sweep_4(private_cells[{i,j,k}], 
+					private_x_faces_hi[{i,j,k}], private_y_faces_hi[{i,j,k}], private_z_faces_lo[{i,j,k+1}],
+					private_x_faces_hi[{i+1,j,k}], private_y_faces_hi[{i,j+1,k}], private_z_faces_lo[{i,j,k}], 
+					angle_values)
 			end
 		end
 
@@ -1364,10 +1427,13 @@ task main()
 		for i = tiles.bounds.hi.x, tiles.bounds.lo.x - 1, -1 do 
 			for j = tiles.bounds.hi.y, tiles.bounds.lo.y - 1, -1 do 
 
-				sweep_4(private_cells[{i,j}], private_x_faces_hi[{i,j}], private_y_faces_hi[{i,j}], 
-					private_x_faces_hi[{i+1,j}], private_y_faces_hi[{i,j+1}], angle_values)
+				sweep_4(private_cells[{i,j,k}], 
+					private_x_faces_hi[{i,j,k}], private_y_faces_hi[{i,j,k}], private_z_faces_lo[{i,j,k}],
+					private_x_faces_hi[{i+1,j,k}], private_y_faces_hi[{i,j+1,k}], private_z_faces_lo[{i,j,k+1}], 
+					angle_values)
 			end
 		end
+		
 
   		-- Compute the residual and output to the screen.
   		res = 0.0
@@ -1401,10 +1467,10 @@ task main()
 	 --todo: divide by tile?
 
   	-- Reduce intensity
-    reduce_intensity(points, angle_values)
+    -- reduce_intensity(points, angle_values)
 
     -- Write a Tecplot file to vizualize the intensity.
-    create_tecplot_file(points)
+    -- create_tecplot_file(points)
 
 end
 
