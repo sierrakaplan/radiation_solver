@@ -34,8 +34,6 @@ local Nx = 100
 local Ny = 100
 local Nz = 100
 
---todo: Read from file in Lua
-
 terra get_number_angles()
 	var filename : rawstring = "radiation_solver/S8.dat"
   	var f = c.fopen(filename, "rb")
@@ -375,9 +373,9 @@ do
 end
 
 -- Partition x,y grid into tiles
-task make_interior_partition(points : region(ispace(int2d), point),
-                            tiles : ispace(int2d),
-                            ntiles : int64, nx : int64, ny : int64)
+task make_interior_partition(points : region(ispace(int3d), point),
+                            tiles : ispace(int3d),
+                            ntiles : int64, nx : int64, ny : int64, nz : int64)
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
 	    var lo = int2d { x = tile.x * nx / ntiles, y = tile.y * ny / ntiles}
@@ -391,9 +389,9 @@ task make_interior_partition(points : region(ispace(int2d), point),
 end
 
 -- x
-task make_interior_partition_x_hi(faces : region(ispace(int2d), x_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64) 
+task make_interior_partition_x_hi(faces : region(ispace(int3d), x_face),
+							tiles : ispace(int3d),
+							ntiles : int64, nx : int64, ny : int64, nz : int64) 
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
@@ -417,9 +415,9 @@ task make_interior_partition_x_hi(faces : region(ispace(int2d), x_face),
 	return p
 end
 
-task make_interior_partition_x_lo(faces : region(ispace(int2d), x_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64) 
+task make_interior_partition_x_lo(faces : region(ispace(int3d), x_face),
+							tiles : ispace(int3d),
+							ntiles : int64, nx : int64, ny : int64, nz: int64) 
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
@@ -448,9 +446,9 @@ task make_interior_partition_x_lo(faces : region(ispace(int2d), x_face),
 end
 
 
-task make_interior_partition_y_hi(faces : region(ispace(int2d), y_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
+task make_interior_partition_y_hi(faces : region(ispace(int3d), y_face),
+							tiles : ispace(int3d),
+							ntiles : int64, nx : int64, ny : int64, nz: int64)
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
@@ -475,9 +473,9 @@ task make_interior_partition_y_hi(faces : region(ispace(int2d), y_face),
 	return p
 end
 
-task make_interior_partition_y_lo(faces : region(ispace(int2d), y_face),
-							tiles : ispace(int2d),
-							ntiles : int64, nx : int64, ny : int64)
+task make_interior_partition_y_lo(faces : region(ispace(int3d), y_face),
+							tiles : ispace(int3d),
+							ntiles : int64, nx : int64, ny : int64, nz: int64)
 	
 	var coloring = c.legion_domain_point_coloring_create()
 	for tile in tiles do
@@ -503,11 +501,12 @@ task make_interior_partition_y_lo(faces : region(ispace(int2d), y_face),
 end
 
 
-task west_bound(faces : region(ispace(int2d), x_face),
+task west_bound(faces : region(ispace(int3d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.xi),
-	reads writes (faces.Ifx_1, faces.Ifx_2, faces.Ifx_3, faces.Ifx_4) 
+	reads writes (faces.Ifx_1, faces.Ifx_2, faces.Ifx_3, faces.Ifx_4,
+					faces.Ifx_5, faces.Ifx_6, faces.Ifx_7, faces.Ifx_8) 
 do
 
 	-- Get array bounds
@@ -577,11 +576,12 @@ do
   	end
 end
 
-task east_bound(faces : region(ispace(int2d), x_face),
+task east_bound(faces : region(ispace(int3d), x_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.xi),
-	reads writes (faces.Ifx_1, faces.Ifx_2, faces.Ifx_3, faces.Ifx_4) 
+	reads writes (faces.Ifx_1, faces.Ifx_2, faces.Ifx_3, faces.Ifx_4, 
+				faces.Ifx_5, faces.Ifx_6, faces.Ifx_7, faces.Ifx_8) 
 do
 
 	-- Get array bounds
@@ -638,18 +638,19 @@ do
 
   			angle = m + (N_angles/4) * 3
   			if angle_values[angle].xi < 0 then
-  				faces[{limits.hi.x,j}].Ifx_4[m] = value
+  				faces[{limits.hi.x,j}].Ifx_4[m] = valuse
   			end
   		end
 
   	end
 end
 
-task north_bound(faces : region(ispace(int2d), y_face),
+task north_bound(faces : region(ispace(int3d), y_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.eta),
-	reads writes (faces.Ify_1, faces.Ify_2, faces.Ify_3, faces.Ify_4)
+	reads writes (faces.Ify_1, faces.Ify_2, faces.Ify_3, faces.Ify_4,
+				faces.Ify_5, faces.Ify_6, faces.Ify_7, faces.Ify_8)
 do
 
 	-- Get array bounds
@@ -712,11 +713,12 @@ do
   	end
 end
 
-task south_bound(faces : region(ispace(int2d), y_face),
+task south_bound(faces : region(ispace(int3d), y_face),
 				angle_values : region(ispace(int1d), angle_value))
 where
 	reads (angle_values.w, angle_values.eta),
-	reads writes (faces.Ify_1, faces.Ify_2, faces.Ify_3, faces.Ify_4)
+	reads writes (faces.Ify_1, faces.Ify_2, faces.Ify_3, faces.Ify_4,
+			faces.Ify_5, faces.Ify_6, faces.Ify_7, faces.Ify_8)
 do
 
 	-- Get array bounds
@@ -781,11 +783,13 @@ do
 end
 
 -- +x, +y
-task sweep_1(points : region(ispace(int2d), point),
-		   x_faces : region(ispace(int2d), x_face),
-		   y_faces : region(ispace(int2d), y_face),
-		   ghost_x_faces : region(ispace(int2d), x_face),
-		   ghost_y_faces : region(ispace(int2d), y_face),
+task sweep_1(points : region(ispace(int3d), point),
+		   x_faces : region(ispace(int3d), x_face),
+		   y_faces : region(ispace(int3d), y_face),
+		   z_faces : region(ispace(int3d), z_face),
+		   ghost_x_faces : region(ispace(int3d), x_face),
+		   ghost_y_faces : region(ispace(int3d), y_face),
+		   ghost_z_faces : region(ispace(int3d), z_face),
 		   angle_values : region(ispace(int1d), angle_value))
 where
   reads (angle_values.xi, angle_values.eta, points.S, points.sigma, ghost_x_faces.Ifx_1, ghost_y_faces.Ify_1),
