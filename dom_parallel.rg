@@ -30,12 +30,12 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Grid size (x cells, y cells)
 
-local Nx = 4
-local Ny = 4
-local Nz = 4
+local Nx = 12
+local Ny = 12
+local Nz = 12
 
 terra get_number_angles()
-	var filename : rawstring = "radiation_solver/LMquads/LM3_6.txt"
+	var filename : rawstring = "radiation_solver/LMquads/LM5_14.txt"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
   	c.fscanf(f, "%d\n", N)
@@ -257,7 +257,7 @@ do
 
   	var val : double[1]
 
-  	var f = c.fopen("radiation_solver/LMquads/LM3_6.txt", "rb")
+  	var f = c.fopen("radiation_solver/LMquads/LM5_14.txt", "rb")
 
   	read_val(f, val) -- gets rid of num angles
 
@@ -392,11 +392,11 @@ do
 	        			+ omega*points[{i,j,k}].sigma/(4.0*pi)*angle_values[m].w*points[{i,j,k}].Iiter_8[m]
 	      		end
 
-      			c.printf("source term %d %d %d = %lf", i, j, k, points[{i,j,k}].S)
+      			-- c.printf("source term %d %d %d = %lf", i, j, k, points[{i,j,k}].S)
       		end
-      		c.printf("\n")
+      		-- c.printf("\n")
     	end
-    	c.printf("\n")
+    	-- c.printf("\n")
   	end
 
 end
@@ -1744,7 +1744,7 @@ do
 
 	  	if angle_values[m].xi <= 0 and angle_values[m].eta <= 0 and angle_values[m].mu <= 0 then
 
-	  		c.printf("8 angle = %d, angle value x = %lf, y = %lf, mu = %lf\n", m, angle_values[m].xi, angle_values[m].eta, angle_values[m].mu)
+	  		-- c.printf("8 angle = %d, angle value x = %lf, y = %lf, mu = %lf\n", m, angle_values[m].xi, angle_values[m].eta, angle_values[m].mu)
 		    -- Use our direction and increments for the sweep.
 
 		    for k = startz,endz,dindz do
@@ -2017,7 +2017,7 @@ do
   	for i = limits.lo.x, limits.hi.x+1 do
     	for j = limits.lo.y, limits.hi.y+1 do
     		for k = limits.lo.z, limits.hi.z+1 do
-      			c.fprintf(f,' %.15e ', points[{i,j,k}].x)
+      			c.fprintf(f,' %.6e ', points[{i,j,k}].x)
       		end
       		c.fprintf(f,'\n')
     	end
@@ -2027,7 +2027,7 @@ do
   	for i = limits.lo.x, limits.hi.x+1 do
     	for j = limits.lo.y, limits.hi.y+1 do
     		for k = limits.lo.z, limits.hi.z+1 do
-      			c.fprintf(f,' %.15e ', points[{i,j,k}].y)
+      			c.fprintf(f,' %.6e ', points[{i,j,k}].y)
       		end
       		c.fprintf(f,'\n')
     	end
@@ -2037,7 +2037,7 @@ do
   	for i = limits.lo.x, limits.hi.x+1 do
     	for j = limits.lo.y, limits.hi.y+1 do
     		for k = limits.lo.z, limits.hi.z+1 do
-      			c.fprintf(f,' %.15e ', points[{i,j,k}].z)
+      			c.fprintf(f,' %.6e ', points[{i,j,k}].z)
       		end
       		c.fprintf(f,'\n')
     	end
@@ -2048,7 +2048,7 @@ do
   		for i = limits.lo.x, limits.hi.x+1 do
     		for j = limits.lo.y, limits.hi.y+1 do
     		
-      			c.fprintf(f,' %.15e ', points[{i,j,k}].G)
+      			c.fprintf(f,' %.6e ', points[{i,j,k}].G)
       		end
       		c.fprintf(f,'\n')
     	end
@@ -2068,7 +2068,7 @@ task main()
 	var res : double = 1.0
 	var N   : int64[1]
 
-	var nt : int64 = 1 -- # tiles per direction
+	var nt : int64 = 2 -- # tiles per direction
 
 	-- var filename : rawstring = quad_file
 
@@ -2308,13 +2308,11 @@ task main()
 
 		t = t + 1
 
-		break
-
 	end
 
 	 --todo: divide by tile?
 
-	 print_final_intensities(points, angle_values)
+	 -- print_final_intensities(points, angle_values)
 
   	-- Reduce intensity
     reduce_intensity(points, angle_values)
