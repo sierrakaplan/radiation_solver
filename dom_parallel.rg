@@ -26,16 +26,14 @@ local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
 
--- local quad_file = "radiation_solver/LMquads/LM3_6.txt"
-
 -- Grid size (x cells, y cells)
 
-local Nx = 12
-local Ny = 12
-local Nz = 12
+local Nx = 32
+local Ny = 32
+local Nz = 1
 
 terra get_number_angles()
-	var filename : rawstring = "radiation_solver/LMquads/LM5_14.txt"
+	var filename : rawstring = "LMquads/LM5_14.txt"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
   	c.fscanf(f, "%d\n", N)
@@ -49,7 +47,7 @@ local N_angles = get_number_angles()
 
 local Lx = 1.0
 local Ly = 1.0
-local Lz = 1.0
+local Lz = 1.0/32.0
 
 -- Grid spacing
 
@@ -64,7 +62,7 @@ local dV = dx*dy*dz;
 
 -- Albedo
 
-local omega = .3
+local omega = .5
 
 -- Wall emissivity
 
@@ -257,7 +255,7 @@ do
 
   	var val : double[1]
 
-  	var f = c.fopen("radiation_solver/LMquads/LM5_14.txt", "rb")
+  	var f = c.fopen("LMquads/LM5_14.txt", "rb")
 
   	read_val(f, val) -- gets rid of num angles
 
@@ -2060,6 +2058,24 @@ do
   	c.fclose(f)
 end
 
+task writeIntensity(points : region(ispace(int3d), point))
+where
+  reads (points.G)
+do
+  var limits = points.bounds
+  var f = c.fopen("intensity.dat", "w")
+  for i = limits.lo.x, limits.hi.x+1 do
+    for j = limits.lo.y, limits.hi.y+1 do
+      for k = limits.lo.z, limits.hi.z+1 do
+        c.fprintf(f,' %.6e ', points[{i,j,k}].G)
+      end
+      c.fprintf(f,'\n')
+    end
+    c.fprintf(f,'\n')
+  end
+  c.fclose(f)
+end
+
 task main()
 
 	-- Some local variables needed for the iterative algorithm.
@@ -2319,7 +2335,7 @@ task main()
 
     -- Write a Tecplot file to vizualize the intensity.
     create_tecplot_file(points)
-
+    writeIntensity(points)
 end
 
 regentlib.start(main)
