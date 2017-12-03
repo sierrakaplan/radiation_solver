@@ -36,7 +36,7 @@ terra get_number_angles()
 	var filename : rawstring = "LMquads/LM5_14.txt"
   	var f = c.fopen(filename, "rb")
   	var N   : int64[1]
-  	c.fscanf(f, "%d\n", N)
+  	c.fscanf(f, "%lld\n", N)
   	c.fclose(f)
   	return N[0]
 end

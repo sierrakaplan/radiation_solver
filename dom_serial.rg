@@ -104,7 +104,7 @@ fspace point {
 }
 
 terra get_number_angles(f : &c.FILE, N : &int64)
-  return c.fscanf(f, "%d\n", &N[0])
+  return c.fscanf(f, "%lld\n", &N[0])
 end
 
 terra read_val(f : &c.FILE, val : &double)
